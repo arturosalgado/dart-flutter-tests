@@ -1,0 +1,2854 @@
+// ignore_for_file: constant_identifier_names
+
+import 'dart:convert';
+
+import 'package:dart_core/dart_core.dart';
+import 'package:db_flutter/assert.dart';
+import 'package:db_flutter/db_flutter.dart';
+import 'package:db_flutter/services.dart';
+import 'package:db_flutter_example/src/widgets/clipboard_f_a_b.dart';
+import 'package:db_flutter_example/tests/dynamic_state/dynamic_state_test.dart';
+import 'package:db_flutter_example/tests/dynamic_state/dynamic_state_vader_users_main_delete_test.dart';
+import 'package:db_flutter_example/tests/dynamic_state/dynamic_state_vader_users_main_test.dart';
+import 'package:db_flutter_example/tests/dynamic_state/dynamic_state_vader_vendors_test.dart';
+import 'package:db_flutter_example/tests/form_json.dart';
+import 'package:db_flutter_example/tests/list/list_users_test.dart';
+import 'package:db_flutter_example/tests/test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:flutter_highlight/themes/monokai-sublime.dart';
+import 'package:get_it/get_it.dart';
+import 'package:highlight/languages/json.dart';
+import 'package:uuid/uuid.dart';
+
+class SynchronizationWidget extends StatefulWidget {
+  const SynchronizationWidget({Key? key}) : super(key: key);
+
+  @override
+  State createState() => _SynchronizationWidgetState();
+}
+
+class _SynchronizationWidgetState extends State<SynchronizationWidget> {
+  String result = '';
+  static const String MULTIACTION = 'multiAction';
+  late final CodeController controller;
+  late final CodeController responseController;
+  late final Future<void> _init;
+  late final DatabaseLibService databaseLibService;
+  late String text;
+  final TextEditingController _textEditingController = TextEditingController();
+
+  String response = '';
+  static Map<String, dynamic>? _resultObject;
+  static Map<String, dynamic>? _payload;
+  @override
+  void initState() {
+    super.initState();
+    _init = init();
+  }
+
+  Future<void> init() async {
+    String username =
+        const String.fromEnvironment('USERNAME', defaultValue: '');
+
+    String password =
+        const String.fromEnvironment('PASSWORD', defaultValue: '');
+
+    String domainWeb =
+        const String.fromEnvironment('DOMAIN_WEB', defaultValue: 'local-dev');
+    String domainMobile = const String.fromEnvironment("DOMAIN_MOBILE",
+        defaultValue: 'vadersnscdev');
+
+    String domainUrl = kIsWeb
+        ? 'https://$domainWeb.vektrconnekt.com'
+        : 'https://$domainMobile.vektrconnekt.com';
+    await GetIt.I<EnvironmentService>().init();
+    await GetIt.I<LoggerService>().init();
+    ApiService apiService = GetIt.I<ApiService>();
+    await apiService.init(useCache: false);
+    await apiService.setDomainUrl(domainUrl);
+
+    await GetIt.I<FirebaseService>().initFirebaseApp();
+    databaseLibService = GetIt.I<DatabaseLibService>();
+
+    String deviceNumber = await Utils.getDeviceUUID();
+
+    String uiKey = const Uuid().v1().toUpperCase();
+
+    await databaseLibService.init(deviceNumber: deviceNumber, uiKey: uiKey);
+
+    // add your not logged in code after this comment
+
+    await apiService.setUser(
+        User(username, '', base64Encode(utf8.encode('$username:$password'))));
+
+    await databaseLibService.setUsername(username);
+    databaseLibService.setFirebaseInitialized();
+    // when we have a user and inform firebase has been initialized
+    // internally the library will attempt to sync
+  }
+
+  // use to for a single test
+  Future<void> onClick() async {
+    DynamicStateTest test = DynamicStateVaderUsersMainDeleteTest();
+    await test.run();
+    _payload = test.payload;
+    _resultObject = test.response;
+
+    setState(() {
+      result = response;
+    });
+  }
+
+  // do not change the call, change the method to add your test
+  Future<void> onPressRunAll() async {
+    await runTests();
+    setState(() {});
+  }
+
+  Future<void> runTests() async {
+    try {
+      await testVendorSearchFilterDynamicState('virusrmgtFltSrh');
+      print('Test: Vendor search filter dynamic state: ok');
+
+      await testVendorSearchInvalidSender('virusrmgtFltVndID');
+      print('Test: Vendor wrong key : ok');
+
+      await testListUsersByVendor();
+      print('Test: List users by vendor: ok');
+
+      await testGetListUserManagement();
+      print('Test: List all users, no filters: ok');
+
+      await testDynamicStateCommentAdd();
+      print('Test dynamic state comment add: OK ');
+
+      await testDynamicStateCommentAdd();
+      print('Test: Dynamic state comment add: ok');
+
+      await testDynamicStateCommentDelete();
+      print('Test: Dynamic state comment delete: ok');
+
+      await testDynamicStateCommentFirstCall();
+      print('Test: Dynamic state comment first call: ok');
+
+      await testDynamicStateFirstCallBadgeManagement();
+      print('Test dynamic state badge management first call: OK ');
+
+      await testDynamicStateFirstCallFacilityManagement();
+      print('Test dynamic state facility management first call: OK ');
+
+      await testDynamicStateFirstCallInspectionManagement();
+      print('Test: dynamic state inspection management first call: OK ');
+
+      await testDynamicStateLoggerDelete();
+      print('Test dynamic state logger delete one record: OK ');
+      await testGetListUserManagementWithVendor();
+      print('Test: List all users with vendor filter: ok');
+
+      await testGetListUserManagementWithVendorAndName();
+      print('Test: List all users with vendor and name filter: ok');
+
+      //for this test, allow the synchrnoization to complete
+      await testGetListUserManagementWithName();
+      print('Test: List users with name filter: ok');
+
+      await testDynamicStateVaderUsersDelete();
+      print('Test: Vader users delete: ok');
+
+      List<Test> tests = [];
+      tests.addAll(DynamicStateVaderUsersMainTest().getTests());
+      tests.addAll(DynamicStateVaderVendorsTest().getTests());
+      tests.add(ListUsersTest());
+
+      for (Test test in tests) {
+        await test.run();
+      }
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+// in runTests
+  Future<void> testVendorSearchInvalidSender(String sender) async {
+    //String sender = 'virusrmgtFltVndID';
+    String payload =
+        FormJson.jsonUserManagementFilterByVendorDynState(sender: sender);
+    Map<String, dynamic> request = jsonDecode(payload);
+    _payload = request;
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(request);
+    _resultObject = resultObject;
+
+    Assert.mapDoesntContainKey(resultObject, 'virusrmgtLstVw');
+  }
+
+  //in runTests
+  Future<void> testVendorSearchFilterDynamicState(String sender) async {
+    //String sender = 'virusrmgtFltVndID';
+    String payload =
+        FormJson.jsonUserManagementFilterByVendorDynState(sender: sender);
+    Map<String, dynamic> request = jsonDecode(payload);
+    _payload = request;
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(request);
+    _resultObject = resultObject;
+    Assert.equals(_resultObject?['virusrmgtLstVw']['multiAction'][0]['action'],
+        'refresh');
+  }
+
+  // in runTests
+  Future<void> testListUsersByVendor() async {
+    String? filterVendorSyncGuid = '70591306-4277-11ec-8933-005056917007';
+    String? name;
+
+    String payload = FormJson.jsonUserManagementGetListUsersByVendor(
+        GUID: filterVendorSyncGuid, name: name);
+
+    Map<String, dynamic> request = jsonDecode(payload);
+    _payload = request;
+
+    _resultObject = await databaseLibService.getList(request);
+
+    Assert.listItemsHaveProperty(
+        field: 'vendorSyncGuid',
+        filterValue: filterVendorSyncGuid,
+        items: _resultObject!['data']);
+  }
+
+  Future<void> testUserInterfaceVendor() async {
+    String payload = FormJson.testUsersInterfaceFilters();
+    Map<String, dynamic> request = jsonDecode(payload);
+    _payload = request;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(request);
+    _resultObject = resultObject;
+  }
+
+  Future<void> testUserTitlesCascadeList(DatabaseLibService databaseLibService,
+      {String text = ''}) async {
+    print('IN testUserTitlesCascadeList test');
+
+    //String jsonPayload = FormJson.getUserTitleCascadeJsonTest();
+    String jsonPayload = FormJson.payloadTest2UserTitles();
+
+    Map<String, dynamic> request = jsonDecode(jsonPayload);
+
+    if (text.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'usrttlNm',
+        'operator': 'startswith',
+        'value': text,
+      });
+    }
+    print('User Titles Cascade List Request $request');
+    databaseLibService.getList(request).then((resultObject) {
+      print('response User Titles Cascade List $resultObject');
+      _resultObject = resultObject;
+    });
+  }
+
+  Future<void> testUserTitlesList(DatabaseLibService databaseLibService,
+      {String text = ''}) async {
+    print('IN testUserTitlesList test');
+
+    String jsonPayload = FormJson.getUserTitlesPayload();
+
+    Map<String, dynamic> request = jsonDecode(jsonPayload);
+
+    if (text.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'usrttlNm',
+        'operator': 'startswith',
+        'value': text,
+      });
+    }
+    print("User Titles List Request $request");
+
+    databaseLibService.getList(request).then((resultObject) {
+      print("response User Titles List $resultObject");
+      _resultObject = resultObject;
+    });
+  }
+
+// ,\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",
+  Future<void> testTree() async {
+    _payload = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"tblEty\":\"DD0384AF-D0F8-40BC-A1FA-9848CD2BB4CE\",\"prnTblEty\":\"DD0384AF-D0F8-40BC-A1FA-9848CD2BB4CE\",\"prnFomtplhdrID\":354,\"fomtpldetFldnmAs\":\"usrVirGrpID\",\"workerName\":\"usp_TreeComponentGroups_sel\",\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"gpnFomtplhdrID\":354,\"gpnTblEty\":\"DD0384AF-D0F8-40BC-A1FA-9848CD2BB4CE\",\"uiKey\":\"ADDFD680-6A15-11EF-BCC2-953B7970F50C\"}",
+      "formValues":
+          "{\"usrVirCtnFilTpl\":null,\"usr_usrCelComID_comPhnClsVldlstID\":\"PHONE/CLASS/MOBILE\",\"usr_usrPhnComID_comPhnClsVldlstID\":\"PHONE/CLASS/PHONE\",\"usrPrfAtaID\":null,\"usrNmSh\":\"A\",\"usrNmMdl\":\"\",\"usrNm\":\"Shader\",\"usrNmNck\":\"A Shader\",\"usrDsc\":\"\",\"usrDyOfBth\":null,\"usrSysUsr\":\"ashader\",\"usrPwd\":\"Nsc9671!\",\"usrAcvYN1\":true,\"usrTpVldlstID\":\"USRTPSUP\",\"usrVndID\":\"6AE11F44-64DB-47B7-A197-0B56D9DEB3C4\",\"usrVirUsrttlID\":[\"EB5B0652-5B92-45B4-A389-368E3110AEE0\"],\"usrVirGrpID\":[\"58371B62-8ED6-4050-B08A-058914333EB2\"],\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":null,\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":\"ashader@corvusjanitorial.com\",\"usr_usrPhnComID_comPhn\":null,\"usr_usrPhnComID_comEtn\":null,\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrCelComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrVirCan\":null,\"usrVirSbm\":null}",
+      "isMobile": false
+    };
+
+    _resultObject = await databaseLibService.getTreeData(_payload!);
+  }
+
+  Future<void> testValidationList(DatabaseLibService databaseLibService,
+      {String? startsWith}) async {
+    print("IN testValidationList test");
+    String jsonPayload = FormJson.validationList();
+    String jsonPayload2 = FormJson.testPhone2Payload();
+    Map<String, dynamic> request = jsonDecode(jsonPayload2);
+
+    if (startsWith != null && startsWith.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'stNm',
+        'operator': 'startswith',
+        'value': startsWith,
+      });
+    }
+
+    print(jsonPayload);
+
+    _payload = request;
+    print("Validation Payload List Request $request");
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print("response Validation List $resultObject");
+    _resultObject = resultObject;
+  }
+
+  Future<void> testStatesList(DatabaseLibService databaseLibService,
+      {String? startsWith}) async {
+    print("IN testStatesList test");
+    String jsonPayload = FormJson.jsonStatesPayload();
+
+    Map<String, dynamic> request = jsonDecode(jsonPayload);
+    print("State Payload List Request $request");
+
+    if (startsWith != null && startsWith.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'stNm',
+        'operator': 'startswith',
+        'value': startsWith,
+      });
+    } else {
+      print("No FILTER ");
+    }
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+    print("Response State List $resultObject");
+    response = resultObject.toString();
+  }
+
+  Future<void> testUserNotificationLogDeleted(
+      DatabaseLibService databaseLibService,
+      {required String guid,
+      required bool deleted}) async {
+    print('IN testUserNotificationDelete \n GUID $guid DEL STATE $deleted');
+
+    String delSender = 'virntflgfomDelSts';
+
+    String json = FormJson.getJsonPayloadForNotificationRead(
+        guid: guid, deleted: deleted, read: false, sender: delSender);
+    Map<String, dynamic> request = jsonDecode(json);
+    _payload = request;
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(request);
+
+    _resultObject = resultObject;
+  }
+
+  Future<void> testUserNotificationLogRead(
+      DatabaseLibService databaseLibService,
+      {required String guid,
+      required bool read}) async {
+    print('IN testUserNotificationRead \n GUID $guid');
+
+    bool deleted = false;
+
+    String readSender = 'virntflgfomRdYN1';
+    String json = FormJson.getJsonPayloadForNotificationRead(
+        guid: guid, deleted: deleted, read: read, sender: readSender);
+    Map<String, dynamic> request = jsonDecode(json);
+    print("payload request map $request");
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(request);
+
+    print("Result Object READ >>>> $resultObject");
+  }
+
+  Future<void> testGetListStructure(
+      DatabaseLibService databaseLibService) async {
+    print("In testListStructure");
+    String tableAbbreviation = 'virlgr';
+    int templateId = 0;
+    List<String>? selectedColumns;
+    Map<String, dynamic> jsonParameters = {
+      'templateKey': 'LOGGER_FORM',
+      'path': '/pages/logger',
+      'sender': 'virlgrLstVw'
+    };
+
+    Map<String, dynamic> response = await databaseLibService.getListStructure(
+        tableAbbreviation: tableAbbreviation,
+        templateId: templateId,
+        selectedColumns: selectedColumns,
+        jsonParameters: jsonParameters);
+
+    print("response GetListStructure $response");
+  }
+
+  Future<void> testGetListServices(
+    DatabaseLibService databaseLibService, {
+    String? id,
+    String? startsWith,
+  }) async {
+    print("TESING Services id=[$id] startsWith=[$startsWith]");
+
+    if (id != null) {
+      id = '\\"$id\\"';
+    } else {
+      id = 'null';
+    }
+    String payload = '''
+{
+"topN":100,
+"columns":[{"fullyQualifiedName":"srv.srvNmSh","alias":"srvNmSh"},{"fullyQualifiedName":"srv.srvID","alias":"srvID"}],
+"sendTotalCount":false,
+"formValues":"{\\"virsrvvldCtnFilTpl\\":null,\\"virsrvvldFltRscID\\":null,\\"virsrvvldSrcRsc\\":null,\\"virsrvvldSrcRscByQr\\":null,\\"virsrvvldFilUplAta\\":null,\\"virsrvvldLoc\\":null,\\"virsrvvldStp\\":null,\\"virsrvvldFltSrvID\\":null}",
+"parameters":"{\\"prnFomtplhdrID\\":355,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virsrvvldFltSrvID\\",\\"gpnFomtplhdrID\\":355,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"useDatabaseLibrary\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"756D0250-5A70-11EF-A333-7D3313150125\\"}",
+"distinct":false,
+"workerName":null,
+"cancel":false,
+"filter":null,
+"additionalFilter":null,
+"tblnm":"srv","sort":"{\\"field\\":\\"srvNmSh\\",\\"dir\\":\\"asc\\"}"
+}
+    
+    ''';
+
+    Map<String, dynamic> request = jsonDecode(payload);
+    if (startsWith != null && startsWith.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'rscNmSh',
+        'operator': 'startswith',
+        'value': startsWith,
+      });
+    } else {
+      print("No FILTER ");
+    }
+
+    print("REQUEST: $request");
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+    print("RESPONSE:::");
+    print(resultObject);
+
+    _resultObject = resultObject;
+  }
+
+  Future<void> testGetListResource(
+    DatabaseLibService databaseLibService, {
+    String? id,
+    String? startsWith, //
+  }) async {
+    print("TESING RESOURCE id=[$id] startsWith=[$startsWith]");
+
+    if (id != null && id.isNotEmpty) {
+      id = '\\"$id\\"';
+    } else {
+      id = 'null';
+    }
+    String jsonRequest = '''
+{
+  "topN": 5,
+  "columns": [
+    {
+      "fullyQualifiedName": "rsc.rscNmSh",
+      "alias": "rscNmSh"
+    },
+    {
+      "fullyQualifiedName": "rsc.rscID",
+      "alias": "rscID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virsrvvldCtnFilTpl\\":null,\\"virsrvvldFltRscID\\":$id,\\"virsrvvldSrcRsc\\":null,\\"virsrvvldSrcRscByQr\\":null,\\"virsrvvldFilUplAta\\":null,\\"virsrvvldLoc\\":null,\\"virsrvvldStp\\":null,\\"virsrvvldFltSrvID\\":null}",
+  "parameters": "{\\"prnFomtplhdrID\\":355,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virsrvvldFltRscID\\",\\"gpnFomtplhdrID\\":355,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"useDatabaseLibrary\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"9B94C640-59A1-11EF-9BF4-01062F8B6B49\\"}",
+  "distinct": false,
+  "workerName": null,
+  "cancel": false,
+  "filter": null,
+  "additionalFilter": null,
+  "tblnm": "rsc",
+  "sort": "{\\"field\\":\\"rscNmSh\\",\\"dir\\":\\"asc\\"}"
+}
+''';
+
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    if (startsWith != null && startsWith.isNotEmpty) {
+      request['filter'] = jsonEncode({
+        'field': 'rscNm',
+        'operator': 'startswith',
+        'value': startsWith,
+      });
+    } else {
+      print("No FILTER ");
+    }
+
+    print("REQUEST: $request");
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+    print("RESPONSE:::");
+    print(resultObject);
+    _resultObject = resultObject;
+  }
+
+  Future<void> testUserPreference(DatabaseLibService databaseLibService) async {
+    String? response =
+        await databaseLibService.getUserPreference('languageCode');
+
+    print('testUserPreference: $response');
+  }
+
+  Future<void> testTranslation(DatabaseLibService databaseLibService) async {
+    String response = databaseLibService.getTranslation('page_not_found');
+
+    print('testTranslation: $response');
+  }
+
+  Future<void> testGetBreadcrumb(DatabaseLibService databaseLibService) async {
+    print("Breadcrumb test:");
+    final response = await databaseLibService.getBreadcrumb('/pages/log_files');
+    print("my response: $response");
+  }
+
+  Future<void> testDirectBreadcrumbCall(String path) async {
+    final response = await SynchronizationService().breadcrumb(path);
+    print("my response: $response");
+  }
+
+  Future<void> testUserNotificationLogList(
+      DatabaseLibService databaseLibService) async {
+    int pageSize = 3;
+    int page = 2;
+    String jsonRequest = '''
+{     
+   "page":$page,
+   "pageSize":$pageSize,
+   "skip":0,
+   "take":100,
+   "topN":0,
+   "columns":[
+      {
+         "fullyQualifiedName":"ntflgusrrel_ntflgusrrelNtflgID.ntflgPshNtfSbj",
+         "alias":"ntflgusrrel_ntflgusrrelNtflgID_ntflgPshNtfSbj"
+      },
+      {
+         "fullyQualifiedName":"ntflgusrrel_ntflgusrrelNtflgID.ntflgPshNtfBod",
+         "alias":"ntflgusrrel_ntflgusrrelNtflgID_ntflgPshNtfBod"
+      },
+      {
+         "fullyQualifiedName":"ntflgusrrel.ntflgusrrelSczGud",
+         "alias":"ntflgusrrelSczGud"
+      },
+      {
+         "fullyQualifiedName":"ntflgusrrel.ntflgusrrelCrtDt",
+         "alias":"ntflgusrrelCrtDt"
+      },
+      {
+         "fullyQualifiedName":"CASE ntflgusrrel.ntflgusrrelVirRdYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+         "alias":"ntflgusrrelVirRdYN1",
+         "isVirtualColumn":true
+      }
+   ],
+   "sendTotalCount":true,
+   "formValues":"{\\"tblEty\\":0,\\"virntflgfomBrc\\":null,\\"virntflgfomCtnFilTpl\\":null,\\"virntflgfomLstVw\\":null,\\"virntflgfomFltStrDat\\":null,\\"virntflgfomFltEndDat\\":null,\\"virntflgfomVwAcn\\":\\"XA/USER/NOTIFICATION/ALL\\",\\"virntflgfomDelAcn\\":null}",
+   "parameters":"{\\"prnFomtplhdrID\\":320,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virntflgfomLstVw\\",\\"gpnFomtplhdrID\\":320,\\"gpnTblEty\\":0,\\"worker\\":{\\"name\\":\\"usp_VaderNotificationCenter_sel\\"},\\"uiKey\\":\\"66164100-BF3A-10CA-8836-B5513A5A11A5\\"}",
+   "distinct":false,
+   "workerName":null,
+   "cancel":false,
+   "filter":null,
+   "additionalFilter":null,
+   "tblnm":"ntflgusrrel",
+   "sort":"[{\\"field\\":\\"notification_log_datetime\\",\\"dir\\":\\"desc\\"},{\\"field\\":\\"ntflgusrrelSczGud\\",\\"dir\\":\\"asc\\"}]",
+   "templateId":319
+}
+    ''';
+
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+  }
+
+  Future<void> testGetFormStructure(DatabaseLibService databaseLibService,
+      {String? path}) async {
+    print("Testing path $path");
+    String tableAbbreviation = 'virfommanpnl';
+    final params = {
+      "tblEty": 0,
+      "prnFomtplhdrID": 352,
+      "path": path,
+      "queryParameters": {},
+      "templateKey": "PROFILE_DASHBOARD",
+      "uiKey": "B30AD580-8657-10E0-AB25-19CFE9436C0C"
+    };
+    int templateId = 246;
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFormStructure(
+            tableAbbreviation: tableAbbreviation,
+            templateId: templateId,
+            parameters: params);
+
+    print('testGetFormStructure: $resultObject');
+  }
+
+  Future<void> testGetComponentToDisplay(DatabaseLibService databaseLibService,
+      {String? path}) async {
+    print("Testing ComponentToDisplay path $path");
+    Map<String, dynamic> resultObject = await databaseLibService
+        .getComponentToDisplay('/pages/facility_management');
+    print('testGetComponentToDisplay: $resultObject');
+  }
+
+  Future<void> testGetThemeRoutes() async {
+    List<Map<String, dynamic>> result =
+        await databaseLibService.getThemeRoutes();
+    _resultObject = {'data': result};
+  }
+
+  Future<void> testGetThemeRoutesByPath() async {
+    _resultObject = await databaseLibService.getThemeRoutesByPath('pages');
+  }
+
+  // in runTests
+  Future<void> testDynamicStateCommentFirstCall() async {
+    //@todo will change then comments is out of testing
+    String path = '/pages/testing_comments';
+    String templateKey = 'TESTING/COMMENTS';
+    String alias = 'virtstCmtCmp';
+    String jsonDynamicState = '''
+{
+  "tblnm":"virtst",
+  "templateId":346,
+  "parameters":"{\\"tblEty\\":0,\\"prnFomtplhdrID\\":346,\\"path\\":\\"$path\\",\\"queryParameters\\":{},\\"templateKey\\":\\"$templateKey\\",\\"uiKey\\":\\"F67BC7B0-616A-108A-8A99-5374F7375608\\",\\"dynamicStateGuid\\":\\"6D10FFC0-61E9-108A-8A99-5374F7375608\\",\\"isFormValid\\":true}",
+  "formValues":"{\\"tblEty\\":0,\\"virtstCmtCmp\\":null}",
+  "isViewing":false,
+  "sender":null,
+  "isFirstTime":true,
+  "isMobile":true}
+''';
+
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+
+    Assert.mapContainsKey(resultObject, alias);
+    Assert.mapContainsKey(resultObject[alias], MULTIACTION);
+    Assert.notEmpty(resultObject[alias][MULTIACTION]);
+    Assert.equals(resultObject[alias][MULTIACTION][0]['action'], 'refresh');
+  }
+
+  //in runTests
+  Future<void> testDynamicStateCommentAdd({String text = 'Hello'}) async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virtst",
+  "templateId": 346,
+  "parameters": "{\\"templateKey\\":\\"TESTING/COMMENTS\\",\\"uiKey\\":\\"D1CC0000-7857-1000-8B71-45A497EEC243\\",\\"senderCommand\\":{\\"action\\":\\"add\\",\\"tableAbbreviation\\":\\"fac\\"}}",
+  "formValues": "{\\"additionalValues\\":{\\"virtstCmtCmp\\":{\\"addText\\":\\"$text\\"}},\\"virtstCmtCmp\\":\\"5C4605D5-E345-4068-9DE2-69A258A85D7B\\",\\"entityId\\":0}",
+  "isViewing": false,
+  "sender": "virtstCmtCmp",
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+
+    int totalCommentsBefore = await DatabaseLibService.getCount<CommentData>();
+    //print("Total comments before: $totalCommentsBefore");
+
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+
+    int totalCommentsAfter = await DatabaseLibService.getCount<CommentData>();
+
+    //print("Total comments after: $totalCommentsAfter");
+    // In theory it can return more than one, if other sources input comments at the same time
+    // but for the most part it should be plus one
+    Assert.equals(totalCommentsBefore + 1, totalCommentsAfter);
+  }
+
+  // @todo templateKey will be changed when integrated
+  // depends on test Create comment
+  Future<void> testDynamicStateCommentDelete() async {
+    await testDynamicStateCommentAdd(text: 'Hello');
+    CommentData commentData =
+        await DatabaseLibService.getFirstRecord<CommentData>();
+
+    //print('IN testDynamicStateCommentDelete ${commentData.syncGuid}');
+
+    String guid = commentData.syncGuid;
+    //print(commentData);
+
+    String jsonDynamicState = '''
+{
+  "tblnm": "virtst",
+  "templateId": 346,
+  "parameters": "{\\"templateKey\\":\\"TESTING/COMMENTS\\",\\"uiKey\\":\\"D1CC0000-7857-1000-8B71-45A497EEC243\\",\\"senderCommand\\":{\\"action\\":\\"delete\\",\\"tableAbbreviation\\":\\"fac\\",\\"items\\":[{\\"cmtSczGud\\":\\"$guid\\"}]}}",
+  "formValues": "{\\"virtstCmtCmp\\":\\"5C4605D5-E345-4068-9DE2-69A258A85D7B\\"}",
+  "isViewing": false,
+  "sender": "virtstCmtCmp",
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+    //for now, we need to rehydrate the record// @todo remove object reload after object rehydration is confirmed.
+    CommentData commentData2 = await DatabaseLibService.findById(guid);
+    Assert.isTrue(commentData2.deletionStatus);
+    commentData2.deletionStatus = false;
+    commentData2.store.save();
+  }
+
+  Future<void> testDynamicStateUserManagementEditFirstCall() async {
+    _payload = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":\"14BE4316-4EE2-46EE-9239-B18FFF2FF4EC\",\"fomtpldetFldnmAs\":\"\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"tblEty\":\"14BE4316-4EE2-46EE-9239-B18FFF2FF4EC\",\"path\":\"/pages/admin/users/form\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"uiKey\":\"2B488030-6724-11EF-B626-15B05D5EF727\",\"dynamicStateGuid\":\"51171960-678E-11EF-B626-15B05D5EF727\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":\"14BE4316-4EE2-46EE-9239-B18FFF2FF4EC\",\"usrVirCtnFilTpl\":null,\"usrNmSh\":null,\"usrNmMdl\":null,\"usrNm\":null,\"usrDyOfBth\":null,\"usrNmNck\":null,\"usrSysUsr\":null,\"usrPwd\":null,\"usrTpVldlstID\":null,\"usrVndID\":null,\"usrVirUsrttlID\":null,\"usrAcvYN1\":null,\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":null,\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":null,\"usr_usrCelComID_comPhn\":null,\"usr_usrPhnComID_comEtn\":null,\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrPhnComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrDsc\":null,\"usr_usrCelComID_comPhnClsVldlstID\":null,\"usr_usrPhnComID_comPhnClsVldlstID\":null,\"usrVirCan\":null,\"usrVirSbm\":null,\"usrVirGrpID\":null}",
+      "isViewing": false,
+      "sender": null,
+      "isFirstTime": true,
+      "isMobile": false
+    };
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateUserManagementAddFirstCall() async {
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnTblEty\":\"\",\"fomtpldetFldnmAs\":\"\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"tblEty\":0,\"path\":\"/pages/admin/users/form\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"uiKey\":\"B12B2B80-5C20-11EF-8CEA-FF2786CD9446\",\"dynamicStateGuid\":\"AB9AA200-5E4F-11EF-8CEA-FF2786CD9446\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"usrVirCtnFilTpl\":null,\"usrPrfAtaID\":null,\"usrNmSh\":null,\"usrNmMdl\":null,\"usrNm\":null,\"usrDyOfBth\":null,\"usrNmNck\":null,\"usrSysUsr\":null,\"usrPwd\":null,\"usrTpVldlstID\":null,\"usrVndID\":null,\"usrVirUsrttlID\":null,\"usrAcvYN1\":null,\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":null,\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":null,\"usr_usrEml02EmlID_emlEml\":null,\"usr_usrEml03EmlID_emlEml\":null,\"usrVirAcnAddNewEml\":null,\"usr_usrCelComID_comPhn\":null,\"usr_usrPhnComID_comEtn\":null,\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrPhnComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrDsc\":null,\"usrVirInrGrpID\":null,\"usrVirExnGrpID\":null,\"usrVirExnSupGrpID\":null,\"usr_usrCelComID_comPhnClsVldlstID\":null,\"usr_usrPhnComID_comPhnClsVldlstID\":null}",
+      "isViewing": false,
+      "sender": null,
+      "isFirstTime": true,
+      "isMobile": false
+    };
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    print(resultObject);
+  }
+
+  Future<void> testDynamicStateVaderUsersSubmit() async {
+    _payload = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"fomtpldetFldnmAs\":\"\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"path\":\"/pages/admin/users/form\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"uiKey\":\"16FE1B60-6965-11EF-985A-2320B88B0E67\",\"dynamicStateGuid\":\"D94A29D0-696E-11EF-985A-2320B88B0E67\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"usrVirCtnFilTpl\":null,\"usrNmSh\":\"A\",\"usrNmMdl\":\"\",\"usrNm\":\"Jaggar\",\"usrDyOfBth\":null,\"usrNmNck\":\"A Jaggar\",\"usrSysUsr\":\"jaggarv\",\"usrPwd\":\"nsc1596\",\"usrTpVldlstID\":\"USRTPSUP\",\"usrVndID\":\"705889e5-4277-11ec-8933-005056917007\",\"usrVirUsrttlID\":[\"EB5B0652-5B92-45B4-A389-368E3110AEE0\"],\"usrAcvYN1\":true,\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":null,\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":\"ajaggar@senske.com\",\"usr_usrCelComID_comPhn\":null,\"usr_usrPhnComID_comEtn\":null,\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrPhnComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrDsc\":\"d\",\"usr_usrCelComID_comPhnClsVldlstID\":\"PHONE/CLASS/MOBILE\",\"usr_usrPhnComID_comPhnClsVldlstID\":\"PHONE/CLASS/PHONE\",\"usrVirCan\":null,\"usrVirSbm\":null,\"usrVirGrpID\":[\"704b7da8-4277-11ec-8933-005056917007\"],\"usrPrfAtaID\":\"E4E122B5-894C-4256-A628-2032E623D3A1\"}",
+      "isViewing": false,
+      "sender": "usrVirSbm",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateVaderUsersCancel() async {
+    _payload = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"fomtpldetFldnmAs\":\"\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"path\":\"/pages/admin/users/form\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"uiKey\":\"16FE1B60-6965-11EF-985A-2320B88B0E67\",\"dynamicStateGuid\":\"D94A29D0-696E-11EF-985A-2320B88B0E67\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"usrVirCtnFilTpl\":null,\"usrNmSh\":\"A\",\"usrNmMdl\":\"\",\"usrNm\":\"Jaggar\",\"usrDyOfBth\":null,\"usrNmNck\":\"A Jaggar\",\"usrSysUsr\":\"jaggarv\",\"usrPwd\":\"nsc1596\",\"usrTpVldlstID\":\"USRTPSUP\",\"usrVndID\":\"705889e5-4277-11ec-8933-005056917007\",\"usrVirUsrttlID\":[\"EB5B0652-5B92-45B4-A389-368E3110AEE0\"],\"usrAcvYN1\":true,\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":null,\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":\"ajaggar@senske.com\",\"usr_usrCelComID_comPhn\":null,\"usr_usrPhnComID_comEtn\":null,\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrPhnComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrDsc\":\"d\",\"usr_usrCelComID_comPhnClsVldlstID\":\"PHONE/CLASS/MOBILE\",\"usr_usrPhnComID_comPhnClsVldlstID\":\"PHONE/CLASS/PHONE\",\"usrVirCan\":null,\"usrVirSbm\":null,\"usrVirGrpID\":[\"704b7da8-4277-11ec-8933-005056917007\"],\"usrPrfAtaID\":\"E4E122B5-894C-4256-A628-2032E623D3A1\"}",
+      "isViewing": false,
+      "sender": "usrVirCan",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateUserManagementSenderName() async {
+    Map<String, dynamic> payload = {
+      "tblnm": "usr",
+      "templateId": 354,
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnTblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"fomtpldetFldnmAs\":\"\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"tblEty\":\"40853929-52cd-11ec-8933-005056917007\",\"path\":\"/pages/admin/users/form\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/MAINTENANCE_FORM\",\"uiKey\":\"B9C997E0-658F-11EF-B2D7-C1E027D767B4\",\"dynamicStateGuid\":\"1BCAC220-6595-11EF-B2D7-C1E027D767B4\",\"isFormValid\":false}",
+      "formValues":
+          "{\"tblEty\":0,\"usrVirCtnFilTpl\":null,\"usrNmSh\":\"hola\",\"usrNmMdl\":\"b\",\"usrNm\":\"Jaggar\",\"usrDyOfBth\":null,\"usrNmNck\":\"A Jaggar\",\"usrSysUsr\":\"jaggarv\",\"usrPwd\":\"nsc1596\",\"usrTpVldlstID\":\"USRTPSUP\",\"usrVndID\":\"705889e5-4277-11ec-8933-005056917007\",\"usrVirUsrttlID\":null,\"usrAcvYN1\":true,\"usr_usrAdrID_adrAdr1\":null,\"usr_usrAdrID_adrAdr2\":null,\"usr_usrAdrID_adrCty\":null,\"usr_usrAdrID_adrStID\":\"value\",\"usr_usrAdrID_adrZip\":null,\"usr_usrEml01EmlID_emlEml\":\"ajaggar@senske.com\",\"usr_usrCelComID_comPhn\":\"cellPhone\",\"usr_usrPhnComID_comEtn\":\"extension\",\"usr_usrPhnComID_comPhnFcnVldlstID\":null,\"usr_usrPhnComID_comPhn\":null,\"usr_usrCelComID_comPhnFcnVldlstID\":null,\"usrDsc\":null,\"usr_usrCelComID_comPhnClsVldlstID\":\"value\",\"usr_usrPhnComID_comPhnClsVldlstID\":\"value\",\"usrVirCan\":null,\"usrVirSbm\":null,\"usrVirGrpID\":null,\"usrPrfAtaID\":null}",
+      "isViewing": false,
+      "sender": "usrNmMdl",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(payload);
+    print(resultObject);
+  }
+
+  Future<void> testDynamicStateLoggerDelete() async {
+    LoggerData logger = await DatabaseLibService.getFirstRecord<LoggerData>();
+
+    if (logger.isError) {
+      print('Logger table has not data. Skipping test');
+      return;
+    }
+    String guid = logger.syncGuid;
+    //print("Logger guid: $guid");
+
+    String jsonDynamicState = '''
+{
+    "tblnm": "virlgr",
+    "templateId": 345,
+    "parameters": "{\\"templateKey\\":\\"LOGGER_FORM\\"}",
+    "formValues": "{\\"virlgrDelAcn\\":[{\\"virlgrSczGud\\":\\"$guid\\"}]}",
+    "isViewing": false,
+    "sender": "virlgrDelAcn",
+    "isFirstTime": false,
+    "isMobile": true
+}
+''';
+
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+    LoggerData loggerDeleted = await DatabaseLibService.findById(guid);
+    //print(loggerDeleted);
+    Assert.isEmpty(loggerDeleted.syncGuid);
+
+    //print(resultObject);
+  }
+
+  Future<void> testDynamicStateLoggerClear(
+      DatabaseLibService databaseLibService) async {
+    String jsonDynamicState = '''
+{
+    "tblnm": "virlgr",
+    "templateId": 345,
+    "parameters": "{\\"templateKey\\":\\"LOGGER_FORM\\"}",
+    "formValues": "{}",
+    "isViewing": false,
+    "sender": "virlgrClnAcn",
+    "isFirstTime": false,
+    "isMobile": true
+}
+''';
+
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    print(resultObject);
+  }
+
+  Future<void> testLoggerLog(DatabaseLibService databaseLibService) async {
+    print('testLoggerLog');
+    for (int i = 0; i < 10; i++) {
+      await databaseLibService.log('log $i', ['tag1', 'tag2']);
+    }
+  }
+
+  Future<void> testGetListLogger() async {
+    String jsonRequest = '''
+{
+  "page": 0,
+  "pageSize": 100,
+  "skip": 0,
+  "take": 0,
+  "columns": [
+    {
+      "fullyQualifiedName": "virlgr.virlgrSczGud",
+      "alias": "virlgrSczGud"
+    },
+    {
+      "fullyQualifiedName": "virlgr.virlgrDt",
+      "alias": "virlgrDt"
+    },
+    {
+      "fullyQualifiedName": "virlgr.virlgrTag",
+      "alias": "virlgrTag"
+    },
+    {
+      "fullyQualifiedName": "virlgr.virlgrDsc",
+      "alias": "virlgrDsc"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{}",
+  "parameters": "{}",
+  "distinct": false,
+  "exportParameters": null,
+  "workerName": null,
+  "filter": "{}",
+  "additionalFilter": null,
+  "tblnm": "virlgr",
+  "sort": "[{\\"field\\":\\"virlgrDt\\",\\"dir\\":\\"desc\\"}]"
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+  }
+
+  void testSubscribeToRealtimeDashboard(DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A00', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-05-12T00:00:00\\"}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeWorkOrderManagement(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"WORK_ORDERS/MANAGEMENT\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-05-12T00:00:00\\"}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeBadgeManagement(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"BADGE_MANAGEMENT\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeServiceDayChangeManagement(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"SERVICE_DAY_CHANGE_MANAGEMENT\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeInspectionManagement(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"INSPECTION_MANAGEMENT\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeFacilityManagement(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"FACILITY_MANAGEMENT\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeProfileDashboard(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"PROFILE_DASHBOARD\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  void testSubscribeToRealtimeVendorDashboard(
+      DatabaseLibService databaseLibService) {
+    databaseLibService
+        .subscribeToRealtime('EDBEF8F7-14A4-4666-A3C8-81BD5A159A01', () {
+      String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"VENDOR_DASHBOARD\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+      Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+
+      return dynamicState;
+    }, (state) {
+      print('state: $state');
+    });
+  }
+
+  Future<void> testGetBlobByKey(DatabaseLibService databaseLibService) async {
+    Map<String, dynamic> resultObject = await databaseLibService
+        .getBlob('/api/attachments/byKey/badge_management/download'); // path
+    print('testGetBlobByKey: $resultObject');
+  }
+
+  Future<void> testGetBlobByUsername(
+      DatabaseLibService databaseLibService, String username) async {
+    print('testGetBlobByUsername: $username');
+    Map<String, dynamic> resultObject = await databaseLibService.getBlob(
+        '/api/user/profilePicture/$username',
+        storeInCache: true); // path
+    print('testGetBlobByUsername: $resultObject');
+  }
+
+  Future<void> testGetBlobAsset(DatabaseLibService databaseLibService) async {
+    Map<String, dynamic> resultObject = await databaseLibService
+        .getBlob('/api/assets/logo_png', storeInCache: true); // path
+    print('testGetBlobAsset: $resultObject');
+  }
+
+  Future<void> testGetBlobGuid() async {
+    _payload = {
+      'path':
+          '/api/attachments/byGuid/366C61AF-7984-4051-9913-62FADE66F4E5/download',
+    };
+    _resultObject = await databaseLibService.getBlob(_payload!['path']); // path
+    print('testGetBlobGuid: $_resultObject');
+  }
+
+  Future<void> testGetBlobGuidThumbnail(
+      DatabaseLibService databaseLibService) async {
+    Map<String, dynamic> resultObject = await databaseLibService.getBlob(
+        '/api/attachments/byGuid/E4E122B5-894C-4256-A628-2032E623D3A1/thumbnail/40x40'); // path
+    print('testGetBlobGuid: $resultObject');
+  }
+
+  Future<void> testUploadBlobGetThumbnail() async {
+    _payload = {
+      'filename': 'filename_dummy',
+      'size': 10,
+      'contentType': 'image/png',
+      'content':
+          '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'
+    };
+    String blobSyncGuid = await databaseLibService.uploadBlob(_payload!);
+    print('testUploadBlob: $blobSyncGuid');
+
+    try {
+      _resultObject = await databaseLibService
+          .getBlob('/api/attachments/byGuid/$blobSyncGuid/thumbnail/w500');
+    } catch (e) {
+      print('this is correct because it does not exist');
+    }
+
+    // we simply want to force an upload to the server
+    await testRenameBlob();
+
+    _resultObject = await databaseLibService
+        .getBlob('/api/attachments/byGuid/$blobSyncGuid/download');
+
+    print('first time $_resultObject');
+
+    _resultObject = await databaseLibService
+        .getBlob('/api/attachments/byGuid/$blobSyncGuid/download');
+
+    print('second time $_resultObject');
+
+    await testRenameBlob();
+
+    _resultObject = await databaseLibService
+        .getBlob('/api/attachments/byGuid/$blobSyncGuid/download');
+
+    print('third time $_resultObject');
+  }
+
+  Future<void> testUploadBlob() async {
+    String blobSyncGuid = await databaseLibService.uploadBlob({
+      'filename': 'filename_dummy',
+      'size': 10,
+      'contentType': 'image/png',
+      'content':
+          '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'
+    });
+    print('testUploadBlob: $blobSyncGuid');
+
+    await testDynamicStateCommentAdd();
+
+    Map<String, dynamic> result = await databaseLibService
+        .getBlob('/api/attachments/byGuid/$blobSyncGuid/download');
+
+    print('result: $result');
+  }
+
+  Future<String> testUploadBlobWithAbbreviationAndTableEntity() async {
+    _payload = {
+      "filename": "1000_F_296213722_hRCoBWuAuZmEMFSsEJu9azgAT0peg23E.jpg",
+      "size": 161832,
+      "contentType": "image/jpeg",
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "sender": "virsrvvldFilUplAta",
+      "formValues":
+          "{\"tblEty\":\"0718CA0F-A32C-4347-8232-F1497DA207CD\",\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156783-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":\"0718CA0F-A32C-4347-8232-F1497DA207CD\",\"virsrvvldLoc\":{\"latitude\":\"19.0283776\",\"longitude\":\"-98.254848\"},\"virsrvvldStp\":2,\"virsrvvldFltSrvID\":\"B160F57B-37B3-4AEF-A8EF-8A57D5240536\",\"virsrvvldFltActsrvtskrelID\":null,\"vrtsrvvldSubTtl01\":\"010010 - NYSSA CDO\",\"vrtsrvvldSubTtl02\":\"Janitorial\"}",
+      "parameters":
+          "{\"tblEty\":\"0718CA0F-A32C-4347-8232-F1497DA207CD\",\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"E0E5F000-760E-11EF-8BF5-2F07758E2718\",\"dynamicStateGuid\":\"EA571510-760E-11EF-8BF5-2F07758E2718\",\"isFormValid\":true,\"virsrvvldFilUplAta\":{\"tableAbbreviation\":\"srvvld\"}}",
+      "content":
+          "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"
+    };
+
+    String blobSyncGuid = await databaseLibService.uploadBlob(_payload!);
+    print('testUploadBlob: $blobSyncGuid');
+    /*_resultObject = {
+      'blobSyncGuid': blobSyncGuid,
+    };*/
+    /*_resultObject = await databaseLibService.getBlob(
+        '/api/attachments/byGuid/${blobSyncGuid.toLowerCase()}/download');
+
+    print('result: $_resultObject');*/
+
+    return blobSyncGuid;
+  }
+
+  Future<void> testRenameBlob() async {
+    String blobSyncGuid = '09CCECB5-3D37-493D-BC96-CBD0FC37B03B';
+    await databaseLibService.renameBlob(blobSyncGuid, 'my_new_name.svg');
+  }
+
+  Future<void> testEditBlobTags() async {
+    String blobSyncGuid = '93A76802-C37B-4304-8D3E-7A9F0F808139';
+    await databaseLibService.editBlobTags([blobSyncGuid], ['tag1', 'tag2']);
+  }
+
+  Future<void> testDeleteBlob({String? blobSyncGuid}) async {
+    blobSyncGuid ??= '93A76802-C37B-4304-8D3E-7A9F0F808139';
+
+    await databaseLibService.deleteBlob([blobSyncGuid]);
+  }
+
+  Future<void> testBlobSaveThumbnail() async {
+    String blobSyncGuid = 'E4E122B5-894C-4256-A628-2032E623D3A1';
+
+    _payload = {
+      'filename': 'any_file',
+      'size': 10,
+      'contentType': 'image/png',
+      'content': 'content_dummy',
+      'uri': '/api/attachments/byGuid/$blobSyncGuid/thumbnail/40x40',
+    };
+
+    await databaseLibService.saveImageThumbnail(blobSyncGuid, _payload!);
+  }
+
+  Future<void> testGetFileTemplateDataDashboardSimple() async {
+    String jsonRequest = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"0F763000-778D-1F73-B500-3F5E11F0FFF3\\",\\"dynamicStateGuid\\":\\"BB6D4A80-7790-1F73-B500-3F5E11F0FFF3\\",\\"isFormValid\\":true,\\"fileTemplate\\":\\"dashboard_simple_cs\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-04-01T00:00:00\\",\\"virfommanpnlVndID\\":null,\\"virfommanpnlLocID\\":null,\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlFacCt\\":\\"15,300\\",\\"virfommanpnlRntSqf\\":\\"46,229,770\\",\\"virfommanpnlWoClN1CplCt\\":\\"183\\",\\"virfommanpnlWoClCt\\":\\"489\\",\\"virfommanpnlWoCdnCt\\":\\"204\\",\\"virfommanpnlWoDirApvCt\\":\\"1\\",\\"virfommanpnlWoFmApvCt\\":\\"37\\",\\"virfommanpnlWoHuDpcCt\\":\\"2\\",\\"virfommanpWoNscMgrApvCt\\":\\"10\\",\\"virfommanpnlWoVndOpnRptCt\\":\\"2,817\\"}",
+  "deviceType": "XA/DEVICE/TYPE/WEB",
+  "buildNumber": "2024060701"
+}
+''';
+    _payload = jsonDecode(jsonRequest);
+    _resultObject = await databaseLibService.getFileTemplateData(_payload!);
+  }
+
+  Future<void> testGetFileTemplateDataProfileDashboard(
+      DatabaseLibService databaseLibService) async {
+    Map<String, dynamic> requestMap = {
+      'parameters': jsonEncode({'fileTemplate': 'profile_dashboard_cs'}),
+      'buildNumber': '2024062101',
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateDataProfileHome() async {
+    _payload = {
+      'parameters': jsonEncode({'fileTemplate': 'profile_home_cs'}),
+      'buildNumber': '2024062101',
+    };
+    _resultObject = await databaseLibService.getFileTemplateData(_payload!);
+  }
+
+  Future<void> testGetFileTemplateDataUserManagement(
+      DatabaseLibService databaseLibService) async {
+    Map<String, dynamic> requestMap = {
+      'parameters': jsonEncode({'fileTemplate': 'user_management_cs'}),
+      'buildNumber': '2024081601',
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateDataProfilePersonalInformation() async {
+    Map<String, dynamic> requestMap = {
+      'parameters': jsonEncode({
+        'fileTemplate': 'profile_personal_information_c',
+        'path': '/pages/admin/users/form'
+      }),
+      'buildNumber': '2024081601',
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateDataWorkOrderManagement(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"0F763000-778D-1F73-B500-3F5E11F0FFF3\\",\\"dynamicStateGuid\\":\\"BB6D4A80-7790-1F73-B500-3F5E11F0FFF3\\",\\"isFormValid\\":true,\\"fileTemplate\\":\\"work_order_management_cs\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-04-01T00:00:00\\",\\"virfommanpnlVndID\\":null,\\"virfommanpnlLocID\\":null,\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlFacCt\\":\\"15,300\\",\\"virfommanpnlRntSqf\\":\\"46,229,770\\",\\"virfommanpnlWoClN1CplCt\\":\\"183\\",\\"virfommanpnlWoClCt\\":\\"489\\",\\"virfommanpnlWoCdnCt\\":\\"204\\",\\"virfommanpnlWoDirApvCt\\":\\"1\\",\\"virfommanpnlWoFmApvCt\\":\\"37\\",\\"virfommanpnlWoHuDpcCt\\":\\"2\\",\\"virfommanpWoNscMgrApvCt\\":\\"10\\",\\"virfommanpnlWoVndOpnRptCt\\":\\"2,817\\"}",
+  "deviceType": "XA/DEVICE/TYPE/WEB",
+  "buildNumber": "2024041205"
+}
+''';
+    Map<String, dynamic> requestMap = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateAccountsPayableManagement(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 297,
+  "parameters": "{\\"fileTemplate\\":\\"ap_management_cs\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-04-01T00:00:00\\",\\"virfommanpnlVndID\\":null,\\"virfommanpnlLocID\\":null,\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlFacCt\\":\\"15,300\\",\\"virfommanpnlRntSqf\\":\\"46,229,770\\",\\"virfommanpnlWoClN1CplCt\\":\\"183\\",\\"virfommanpnlWoClCt\\":\\"489\\",\\"virfommanpnlWoCdnCt\\":\\"204\\",\\"virfommanpnlWoDirApvCt\\":\\"1\\",\\"virfommanpnlWoFmApvCt\\":\\"37\\",\\"virfommanpnlWoHuDpcCt\\":\\"2\\",\\"virfommanpWoNscMgrApvCt\\":\\"10\\",\\"virfommanpnlWoVndOpnRptCt\\":\\"2,817\\"}",
+  "deviceType": "XA/DEVICE/TYPE/WEB",
+  "buildNumber": "2024041205"
+}
+''';
+    Map<String, dynamic> requestMap = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateBadgeManagement(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"0F763000-778D-1F73-B500-3F5E11F0FFF3\\",\\"dynamicStateGuid\\":\\"BB6D4A80-7790-1F73-B500-3F5E11F0FFF3\\",\\"isFormValid\\":true,\\"fileTemplate\\":\\"badge_management_cs\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-04-01T00:00:00\\",\\"virfommanpnlVndID\\":null,\\"virfommanpnlLocID\\":null,\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlFacCt\\":\\"15,300\\",\\"virfommanpnlRntSqf\\":\\"46,229,770\\",\\"virfommanpnlWoClN1CplCt\\":\\"183\\",\\"virfommanpnlWoClCt\\":\\"489\\",\\"virfommanpnlWoCdnCt\\":\\"204\\",\\"virfommanpnlWoDirApvCt\\":\\"1\\",\\"virfommanpnlWoFmApvCt\\":\\"37\\",\\"virfommanpnlWoHuDpcCt\\":\\"2\\",\\"virfommanpWoNscMgrApvCt\\":\\"10\\",\\"virfommanpnlWoVndOpnRptCt\\":\\"2,817\\"}",
+  "deviceType": "XA/DEVICE/TYPE/WEB",
+  "buildNumber": "2024041205"
+}
+''';
+    Map<String, dynamic> requestMap = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getFileTemplateData(requestMap);
+    print(resultObject);
+  }
+
+  Future<void> testGetFileTemplateContentByKey(
+      DatabaseLibService databaseLibService) async {
+    String key = 'profile_home_cs';
+    String result = await databaseLibService.getFileTemplateContentByKey(key);
+    print(result);
+  }
+
+  void testChangeUsername(
+      ApiService apiService,
+      DatabaseLibService databaseLibService,
+      String username,
+      String password,
+      int seconds) {
+    Future.delayed(Duration(seconds: seconds), () async {
+      await apiService.setUser(
+          User(username, '', base64Encode(utf8.encode('$username:$password'))));
+      await databaseLibService.setUsername(username);
+      await testDynamicStateFirstCallDashboard();
+    });
+  }
+
+  Future<void> testVendorGetListWithSelectedItemVendor(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "page": 1,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 3,
+  "columns": [
+    {
+      "fullyQualifiedName": "vnd.vndNm",
+      "alias": "vndNm"
+    },
+    {
+      "fullyQualifiedName": "vnd.vndID",
+      "alias": "vndID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlDt\\":null,\\"virfommanpnlVndID\\":\\"705848b0-4277-11ec-8933-005056917007\\",\\"virfommanpnlLocID\\":null}",
+  "parameters": "{\\"prnFomtplhdrID\\":167,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virfommanpnlVndID\\",\\"gpnFomtplhdrID\\":167,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"useDatabaseLibrary\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"1D93EB00-523D-1F39-8EDA-7911380F816E\\"}",
+  "distinct": false,
+  "workerName": null,
+  "filter": null,
+  "additionalFilter": null,
+  "tblnm": "vnd",
+  "sort": "{\\"field\\":\\"vndNm\\",\\"dir\\":\\"asc\\"}"
+}
+''';
+
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+    response = resultObject.toString();
+  }
+
+  Future<void> testVendorGetListWithSelectedItem(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "page": 1,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 3,
+  "columns": [
+    {
+      "fullyQualifiedName": "vnd.vndNm",
+      "alias": "vndNm"
+    },
+    {
+      "fullyQualifiedName": "vnd.vndID",
+      "alias": "vndID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virfommanpnlDt\\":null,\\"virfommanpnlVndID\\":\\"\\",\\"virfommanpnlLocID\\":null}",
+  "parameters": "{\\"prnFomtplhdrID\\":167,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virfommanpnlVndID\\",\\"gpnFomtplhdrID\\":167,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"useDatabaseLibrary\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"1D93EB00-523D-1F39-8EDA-7911380F816E\\"}",
+  "distinct": false,
+  "workerName": null,
+  "filter": null,
+  "additionalFilter": null,
+  "tblnm": "vnd",
+  "sort": "{\\"field\\":\\"vndNm\\",\\"dir\\":\\"asc\\"}"
+}
+''';
+
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+  }
+
+  Future<void> testGetListVendor(DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "page": 1,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 3,
+  "columns": [
+    {
+      "fullyQualifiedName": "vnd.vndNm",
+      "alias": "vndNm"
+    },
+    {
+      "fullyQualifiedName": "vnd.vndID",
+      "alias": "vndID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlDt\\":null,\\"virfommanpnlVndID\\":null,\\"virfommanpnlLocID\\":null}",
+  "parameters": "{\\"prnFomtplhdrID\\":167,\\"prnTblEty\\":0,\\"fomtpldetFldnmAs\\":\\"virfommanpnlVndID\\",\\"gpnFomtplhdrID\\":167,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"4531B600-C072-1F32-A6E2-B7C206C22D2D\\"}",
+  "distinct": false,
+  "exportParameters": null,
+  "workerName": null,
+  "filter": "{\\"field\\":\\"vndNm\\",\\"operator\\":\\"startswith\\",\\"value\\":\\"ga\\"}",
+  "additionalFilter": null,
+  "tblnm": "vnd",
+  "sort": "{\\"field\\":\\"vndNm\\",\\"dir\\":\\"asc\\"}"
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+    response = resultObject.toString();
+  }
+
+  Future<void> testLocationGetList(
+      DatabaseLibService databaseLibService) async {
+    print("In testLocationGetList");
+    String jsonRequest = '''
+{
+  "page": 1,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 100,
+  "columns": [
+    {
+      "fullyQualifiedName": "loc.locNmSh",
+      "alias": "locNmSh"
+    },
+    {
+      "fullyQualifiedName": "locNmSh.locID",
+      "alias": "locID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virfommanpnlDt\\":null,\\"virfommanpnlVndID\\":\\"B79521AE-CD82-43EC-8E8A-B3C5EF95EBAE\\",\\"virfommanpnlLocID\\":null}",
+  "parameters": "{\\"fomtpldetFldnmAs\\":\\"virfommanpnlLocID\\",\\"gpnFomtplhdrID\\":167,\\"gpnTblEty\\":0,\\"allowOffline\\":true,\\"worker\\":{\\"name\\":\\"\\",\\"filter\\":\\"\\"},\\"uiKey\\":\\"4531B600-C072-1F32-A6E2-B7C206C22D2D\\"}",
+  "distinct": false,
+  "exportParameters": null,
+  "workerName": null,
+  "filter": "{\\"field\\":\\"vndNm\\",\\"operator\\":\\"startswith\\",\\"value\\":\\"\\"}",
+  "additionalFilter": null,
+  "tblnm": "loc",
+  "sort": "{\\"field\\":\\"locNmSh\\",\\"dir\\":\\"asc\\"}"
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+
+    // in the following pages the startKey is the last value of the previous page
+    request['startKey'] = resultObject['startKey'];
+
+    resultObject = await databaseLibService.getList(request);
+    print(resultObject);
+
+    // if the user types in again, startKey is null
+    // lets say they want to search for sacramento
+    request['startKey'] = null;
+    request['filter'] = jsonEncode({
+      'field': 'locNmSh',
+      'operator': 'startswith',
+      'value': 's',
+    });
+
+    resultObject = await databaseLibService.getList(request);
+    print(resultObject);
+
+    _resultObject = resultObject;
+  }
+
+  Future<void> testDynamicStateChangeDate(
+      DatabaseLibService databaseLibService) async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-02-12T00:00:00\\"}",
+  "isViewing": false,
+  "sender": "virfommanpnlDt",
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    print(resultObject);
+  }
+
+  Future<void> testDynamicStateChangeVendor() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"WORK_ORDERS/MANAGEMENT\\",\\"uiKey\\":\\"8EAA6080-17B0-1F4C-8382-610ED5EBB283\\",\\"dynamicStateGuid\\":\\"FBEFDD00-1814-1F4C-8382-610ED5EBB283\\",\\"isFormValid\\":true}",
+  "formValues": "{\\"tblEty\\":0,\\"virfommanpnlDt\\":\\"2024-04-01T00:00:00\\",\\"virfommanpnlVndID\\":\\"70584e4e-4277-11ec-8933-005056917007\\",\\"virfommanpnlLocID\\":\\"f59cf9a5-ac4a-11ec-8933-005056917007\\",\\"virfommanpnlCtnFilTpl\\":null,\\"virfommanpnlFacCt\\":\\"263\\",\\"virfommanpnlRntSqf\\":\\"3,660,817\\"}",
+  "isViewing": false,
+  "sender": "virfommanpnlVndID",
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+    _payload = jsonDecode(jsonDynamicState);
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateChangeLocation() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 167,
+  "parameters": "{\\"tblEty\\":0,\\"prnFomtplhdrID\\":167,\\"path\\":\\"/pages/dashboard\\",\\"queryParameters\\":{},\\"templateKey\\":\\"DASHBOARD\\",\\"uiKey\\":\\"5D6DF640-E168-11EE-BE40-2D654BDF064B\\",\\"dynamicStateGuid\\":\\"5E94EA10-E168-11EE-BE40-2D654BDF064B\\",\\"isFormValid\\":true,\\"virfommanpnlDt\\":\\"2024-03-28T00:00:00\\"}",
+  "formValues": "{ \\"virfommanpnlVndID\\":\\"7059049b-4277-11ec-8933-005056917007\\", \\"virfommanpnlLocID\\":\\"\\"}",
+  "isViewing": false,
+  "sender": "virfommanpnlLocID",
+  "isFirstTime": false,
+  "isMobile": false
+}
+''';
+    _payload = jsonDecode(jsonDynamicState);
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateFirstCallDashboard() async {
+    _payload = {
+      "tblnm": "virfommanpnl",
+      "templateId": 167,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":167,\"path\":\"/pages/dashboard\",\"queryParameters\":{},\"templateKey\":\"DASHBOARD\",\"uiKey\":\"63278810-7F49-11EF-B786-FF2D484AB1C1\",\"dynamicStateGuid\":\"6AE886F0-7F5B-11EF-B786-FF2D484AB1C1\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virfommanpnlDt\":null,\"virfommanpnlVndID\":null,\"virfommanpnlLocID\":null,\"virfommanpnlCtnFilTpl\":null}",
+      "sender": null,
+      "isFirstTime": true,
+      "isMobile": false
+    };
+
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateFirstCallWorkOrderManagement() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"WORK_ORDERS/MANAGEMENT\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    _payload = jsonDecode(jsonDynamicState);
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateFirstCallBadgeManagement() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"BADGE_MANAGEMENT\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+    List<String> keys = [
+      "virfommanpnlDt",
+      "virfommanpnlFacAcsMedAwtNscMgrApvCt",
+      "virfommanpnlFacAcsMedMssNoCt",
+      "virfommanpnlFacAcsMedToRclCt"
+    ];
+
+    Assert.mapContainsKeys(_resultObject!, keys);
+  }
+
+  Future<void> testDynamicStateFirstCallServiceDayChangeManagement(
+      DatabaseLibService databaseLibService) async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"SERVICE_DAY_CHANGE_MANAGEMENT\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    print(resultObject);
+  }
+
+  Future<void> testDynamicStateFirstCallInspectionManagement() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"INSPECTION_MANAGEMENT\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+    List<String> keys = [
+      'virfommanpnlDt',
+      'virfommanpnlScrInp',
+      'virfommanpnlScrInpWgt',
+      'virfommanpnlScrInpCpl',
+      'virfommanpnlScrInpFd',
+      'virfommanpnlScrInpAvg',
+      'virfommanpnlScrInpCplCht',
+      'virfommanpnlScrInpFdCht',
+      'virfommanpnlScrInpAvgCht'
+    ];
+
+    Assert.mapContainsKeys(_resultObject!, keys);
+  }
+
+  Future<void> testDynamicStateFirstCallFacilityManagement() async {
+    //print('Facility Management');
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"FACILITY_MANAGEMENT\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    Map<String, dynamic> dynamicState = jsonDecode(jsonDynamicState);
+    _payload = dynamicState;
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+    _resultObject = resultObject;
+    Assert.mapContainsKeys(resultObject,
+        ['virfommanpnlDt', 'virfommanpnlFacCt', 'virfommanpnlRntSqf']);
+  }
+
+  Future<void> testDynamicStateFirstCallProfileDashboard() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"PROFILE_DASHBOARD\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    _payload = jsonDecode(jsonDynamicState);
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testDynamicStateFirstCallVendorDashboard() async {
+    String jsonDynamicState = '''
+{
+  "tblnm": "virfommanpnl",
+  "templateId": 324,
+  "parameters": "{\\"templateKey\\":\\"VENDOR_DASHBOARD\\"}",
+  "formValues": "{}",
+  "isViewing": false,
+  "sender": null,
+  "isFirstTime": true,
+  "isMobile": false
+}
+''';
+    _payload = jsonDecode(jsonDynamicState);
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+  }
+
+  Future<void> testGetListStandardComment(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "page": 0,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 100,
+  "columns": [
+    {
+      "fullyQualifiedName": "stdcmt.stdcmtCmt",
+      "alias": "stdcmtCmt"
+    },
+    {
+      "fullyQualifiedName": "stdcmt.stdcmtID",
+      "alias": "stdcmtID"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virtstCmtCmp\\":\\"5C4605D5-E345-4068-9DE2-69A258A85D7B\\"}",
+  "parameters": "{\\"fomtpldetFldnmAs\\":\\"virtstCmtCmp\\",\\"virtstCmtCmp\\":{\\"tableAbbreviation\\":\\"fac\\"}}",
+  "distinct": false,
+  "exportParameters": null,
+  "workerName": null,
+  "filter": "{\\"field\\":\\"stdcmtCmt\\",\\"operator\\":\\"startswith\\",\\"value\\":\\"\\"}",
+  "additionalFilter": null,
+  "tblnm": "stdcmt",
+  "sort": "{\\"field\\":\\"stdcmtID\\",\\"dir\\":\\"DESC\\"}"
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+
+    // in the following pages the startKey is the last value of the previous page
+    request['startKey'] = resultObject['startKey'];
+
+    resultObject = await databaseLibService.getList(request);
+    print(resultObject);
+
+    // if the user types in again, startKey is null
+    request['startKey'] = null;
+    request['filter'] = jsonEncode({
+      'field': 'vndNm',
+      'operator': 'startswith',
+      'value': 'Keller',
+    });
+
+    resultObject = await databaseLibService.getList(request);
+    print(resultObject);
+  }
+
+  // TODO this is broken, I need to wait for Dasa to send me the parent
+  Future<void> testGetListProfileHomeMyUsers(
+      DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+ "page": 1,
+  "pageSize": 100,
+  "skip": 0,
+  "take": 100,
+  "topN": 5,
+  "tblnm": "usr",
+  "parameters": "{\\"prnFomtplhdrID\\":246,\\"gpnFomtplhdrID\\":246,\\"fomtpldetFldnmAs\\":\\"virusrprfUsrLstVw\\",\\"uiKey\\":\\"4FB21F73-5B36-4E5D-8E24-9B4908E4280A\\"}",
+  "columns": [
+    {
+      "fullyQualifiedName": "usr.usrID",
+      "alias": "usrID"
+    },
+    {
+      "fullyQualifiedName": "usr.usrNmSh",
+      "alias": "usrNmSh"
+    }
+  ],
+  "sendTotalCount": true,
+  "formValues": "{}",
+  "distinct": false,
+  "sort": "[{\\"field\\":\\"usrNmSh\\",\\"dir\\":\\"asc\\"},{\\"field\\":\\"usrNm\\",\\"dir\\":\\"asc\\"}]",
+  "templateId": 32
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+  }
+
+  // list users with vendor and name
+  Future<void> testGetListUserManagementWithVendorAndName() async {
+    //print("vendor and name...");
+    String vendor = '082ECD6B-829E-4BBE-884A-FBB8C1ACAD63';
+    _payload = {
+      "page": 1,
+      "pageSize": 100,
+      "skip": 0,
+      "take": 100,
+      "startKey": null,
+      "startKeys": {},
+      "columns": [
+        {"fullyQualifiedName": "usr.usrID", "alias": "usrID"},
+        {"fullyQualifiedName": "usr.usrNmSh", "alias": "usrNmSh"},
+        {"fullyQualifiedName": "usr.usrNm", "alias": "usrNm"},
+        {"fullyQualifiedName": "usr.usrSysUsr", "alias": "usrSysUsr"},
+        {
+          "fullyQualifiedName": "usr.usrVirPwd",
+          "alias": "usrVirPwd",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName": "usr_usrVndID.vndNm",
+          "alias": "usr_usrVndID_vndNm"
+        },
+        {
+          "fullyQualifiedName": "usr_usrEml01EmlID.emlEml",
+          "alias": "usr_usrEml01EmlID_emlEml"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmAsgUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmAsgUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmDelUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmDelUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrAcvYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrAcvYN1"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirUsrAsgAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirUsrAsgAsCntYN1",
+          "isVirtualColumn": true
+        }
+      ],
+      "sendTotalCount": true,
+      "formValues":
+          "{\"tblEty\":0,\"virusrmgtCtnFilTpl\":null,\"virusrmgtLstVw\":null,\"virusrmgtFltVndID\":\"$vendor\",\"virusrmgtFltLocID\":null,\"virusrmgtFltUsr\":null,\"virusrmgtFltSrh\":null}",
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":0,\"fomtpldetFldnmAs\":\"virusrmgtLstVw\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"templateKey\":\"VADER/ADMIN/USER\",\"uiKey\":\"63278810-7F49-11EF-B786-FF2D484AB1C1\"}",
+      "distinct": false,
+      "workerName": null,
+      "cancel": false,
+      "filter": null,
+      "additionalFilter": null,
+      "tblnm": "usr",
+      "sort":
+          "[{\"field\":\"usrNmSh\",\"dir\":\"asc\"},{\"field\":\"usrNm\",\"dir\":\"asc\"}]",
+      "templateId": 0
+    };
+    _payload!['filter'] = jsonEncode({
+      'field': 'stNm',
+      'operator': 'startswith',
+      'value': 'E',
+    });
+    _resultObject = await databaseLibService.getList(_payload!);
+
+    Assert.mapContainsKey(_resultObject!, 'data');
+    Assert.notEmpty(_resultObject!['data']);
+
+    //print("data is ${_resultObject!['data']}  ");
+    Assert.listItemsHaveProperty(
+        items: _resultObject!['data'],
+        field: 'vendorSyncGuid',
+        filterValue: vendor);
+  }
+
+  // list users with vendor and name
+  //for this test, allow the synchrnoization to complete
+  Future<void> testGetListUserManagementWithName() async {
+    //print(" name..E.");
+
+    _payload = {
+      "page": 1,
+      "pageSize": 100,
+      "skip": 0,
+      "take": 100,
+      "startKey": null,
+      "startKeys": {},
+      "columns": [
+        {"fullyQualifiedName": "usr.usrID", "alias": "usrID"},
+        {"fullyQualifiedName": "usr.usrNmSh", "alias": "usrNmSh"},
+        {"fullyQualifiedName": "usr.usrNm", "alias": "usrNm"},
+        {"fullyQualifiedName": "usr.usrSysUsr", "alias": "usrSysUsr"},
+        {
+          "fullyQualifiedName": "usr.usrVirPwd",
+          "alias": "usrVirPwd",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName": "usr_usrVndID.vndNm",
+          "alias": "usr_usrVndID_vndNm"
+        },
+        {
+          "fullyQualifiedName": "usr_usrEml01EmlID.emlEml",
+          "alias": "usr_usrEml01EmlID_emlEml"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmAsgUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmAsgUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmDelUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmDelUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrAcvYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrAcvYN1"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirUsrAsgAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirUsrAsgAsCntYN1",
+          "isVirtualColumn": true
+        }
+      ],
+      "sendTotalCount": true,
+      "formValues":
+          "{\"tblEty\":0,\"virusrmgtCtnFilTpl\":null,\"virusrmgtLstVw\":null,\"virusrmgtFltVndID\":null,\"virusrmgtFltLocID\":null,\"virusrmgtFltUsr\":null,\"virusrmgtFltSrh\":null}",
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":0,\"fomtpldetFldnmAs\":\"virusrmgtLstVw\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"templateKey\":\"VADER/ADMIN/USER\",\"uiKey\":\"63278810-7F49-11EF-B786-FF2D484AB1C1\"}",
+      "distinct": false,
+      "workerName": null,
+      "cancel": false,
+      "filter": null,
+      "additionalFilter": null,
+      "tblnm": "usr",
+      "sort":
+          "[{\"field\":\"usrNmSh\",\"dir\":\"asc\"},{\"field\":\"usrNm\",\"dir\":\"asc\"}]",
+      "templateId": 0
+    };
+    _payload!['filter'] = jsonEncode({
+      'field': 'stNm',
+      'operator': 'startswith',
+      'value': 'e',
+    });
+    _resultObject = await databaseLibService.getList(_payload!);
+
+    Assert.mapContainsKey(_resultObject!, 'data');
+    Assert.notEmpty(_resultObject!['data']);
+  }
+
+  // list users with vendor
+  Future<void> testGetListUserManagementWithVendor() async {
+    String vendor = '082ECD6B-829E-4BBE-884A-FBB8C1ACAD63';
+    _payload = {
+      "page": 1,
+      "pageSize": 100,
+      "skip": 0,
+      "take": 100,
+      "startKey": null,
+      "startKeys": {},
+      "columns": [
+        {"fullyQualifiedName": "usr.usrID", "alias": "usrID"},
+        {"fullyQualifiedName": "usr.usrNmSh", "alias": "usrNmSh"},
+        {"fullyQualifiedName": "usr.usrNm", "alias": "usrNm"},
+        {"fullyQualifiedName": "usr.usrSysUsr", "alias": "usrSysUsr"},
+        {
+          "fullyQualifiedName": "usr.usrVirPwd",
+          "alias": "usrVirPwd",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName": "usr_usrVndID.vndNm",
+          "alias": "usr_usrVndID_vndNm"
+        },
+        {
+          "fullyQualifiedName": "usr_usrEml01EmlID.emlEml",
+          "alias": "usr_usrEml01EmlID_emlEml"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmAsgUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmAsgUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmDelUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmDelUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrAcvYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrAcvYN1"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirUsrAsgAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirUsrAsgAsCntYN1",
+          "isVirtualColumn": true
+        }
+      ],
+      "sendTotalCount": true,
+      "formValues":
+          "{\"tblEty\":0,\"virusrmgtCtnFilTpl\":null,\"virusrmgtLstVw\":null,\"virusrmgtFltVndID\":\"$vendor\",\"virusrmgtFltLocID\":null,\"virusrmgtFltUsr\":null,\"virusrmgtFltSrh\":null}",
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":0,\"fomtpldetFldnmAs\":\"virusrmgtLstVw\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"templateKey\":\"VADER/ADMIN/USER\",\"uiKey\":\"63278810-7F49-11EF-B786-FF2D484AB1C1\"}",
+      "distinct": false,
+      "workerName": null,
+      "cancel": false,
+      "filter": null,
+      "additionalFilter": null,
+      "tblnm": "usr",
+      "sort":
+          "[{\"field\":\"usrNmSh\",\"dir\":\"asc\"},{\"field\":\"usrNm\",\"dir\":\"asc\"}]",
+      "templateId": 0
+    };
+
+    _resultObject = await databaseLibService.getList(_payload!);
+
+    Assert.mapContainsKey(_resultObject!, 'data');
+    Assert.notEmpty(_resultObject!['data']);
+
+    //print("data is ${_resultObject!['data']}  ");
+    Assert.listItemsHaveProperty(
+        items: _resultObject!['data'],
+        field: 'vendorSyncGuid',
+        filterValue: vendor);
+  }
+
+  //in runTests
+  // list users without vendor ,all fields:vendor,location,name empty
+  Future<void> testGetListUserManagement() async {
+    _payload = {
+      "page": 1,
+      "pageSize": 100,
+      "skip": 0,
+      "take": 100,
+      "startKey": null,
+      "startKeys": {},
+      "columns": [
+        {"fullyQualifiedName": "usr.usrID", "alias": "usrID"},
+        {"fullyQualifiedName": "usr.usrNmSh", "alias": "usrNmSh"},
+        {"fullyQualifiedName": "usr.usrNm", "alias": "usrNm"},
+        {"fullyQualifiedName": "usr.usrSysUsr", "alias": "usrSysUsr"},
+        {
+          "fullyQualifiedName": "usr.usrVirPwd",
+          "alias": "usrVirPwd",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName": "usr_usrVndID.vndNm",
+          "alias": "usr_usrVndID_vndNm"
+        },
+        {
+          "fullyQualifiedName": "usr_usrEml01EmlID.emlEml",
+          "alias": "usr_usrEml01EmlID_emlEml"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmAsgUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmAsgUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirPrmDelUsrAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirPrmDelUsrAsCntYN1",
+          "isVirtualColumn": true
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrAcvYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrAcvYN1"
+        },
+        {
+          "fullyQualifiedName":
+              "CASE usr.usrVirUsrAsgAsCntYN1 WHEN 1 THEN 'Yes' ELSE 'No' END",
+          "alias": "usrVirUsrAsgAsCntYN1",
+          "isVirtualColumn": true
+        }
+      ],
+      "sendTotalCount": true,
+      "formValues":
+          "{\"tblEty\":0,\"virusrmgtCtnFilTpl\":null,\"virusrmgtLstVw\":null,\"virusrmgtFltVndID\":null,\"virusrmgtFltLocID\":null,\"virusrmgtFltUsr\":null,\"virusrmgtFltSrh\":null}",
+      "parameters":
+          "{\"prnFomtplhdrID\":355,\"prnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"prnTblEty\":0,\"fomtpldetFldnmAs\":\"virusrmgtLstVw\",\"gpnFomtplhdrID\":355,\"gpnTblEty\":0,\"gpnFomtplKey\":\"VADER/ADMIN/USER/FORM\",\"templateKey\":\"VADER/ADMIN/USER\",\"uiKey\":\"63278810-7F49-11EF-B786-FF2D484AB1C1\"}",
+      "distinct": false,
+      "workerName": null,
+      "cancel": false,
+      "filter": null,
+      "additionalFilter": null,
+      "tblnm": "usr",
+      "sort":
+          "[{\"field\":\"usrNmSh\",\"dir\":\"asc\"},{\"field\":\"usrNm\",\"dir\":\"asc\"}]",
+      "templateId": 0
+    };
+
+    _resultObject = await databaseLibService.getList(_payload!);
+
+    // print('first page');
+    // print(resultObject);
+
+    // print('in the second page startKey is the last value of the previous page');
+    // request['startKey'] = resultObject['startKey'];
+
+    // resultObject = await databaseLibService.getList(request);
+    // print(resultObject);
+
+    // print('in the third page startKey is the last value of the previous page');
+    // request['startKey'] = resultObject['startKey'];
+
+    // resultObject = await databaseLibService.getList(request);
+    // print(resultObject);
+
+    Assert.mapContainsKey(_resultObject!, 'data');
+    Assert.notEmpty(_resultObject!['data']);
+  }
+
+  Future<void> testDynamicStateVaderUsersDelete() async {
+    _payload = {
+      "tblnm": "virusrmgt",
+      "templateId": 355,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":355,\"path\":\"/pages/admin/users\",\"queryParameters\":{},\"templateKey\":\"VADER/ADMIN/USER/FORM\",\"isFormValid\":true,\"senderCommand\":{\"action\":\"delete\",\"senderPath\":\"\$.virusrmgtLstVw\",\"sendSelectedItems\":[{\"syncGuid\":\"545F3BEF-83B9-401C-A324-7E85AB63D699\",\"usrSczGud\":\"545F3BEF-83B9-401C-A324-7E85AB63D699\",\"vendorSyncGuid\":\"70595294-4277-11ec-8933-005056917007\",\"usrNmSh\":\"74rommel\",\"usrNm\":\"\",\"usrSysUsr\":\"74rommel@gmail.com\",\"usrVirPwd\":\"Nsc1423!\",\"usr_usrVndID_vndNm\":null,\"usr_usrEml01EmlID_emlEml\":\"74rommel@gmail.com\",\"buildNumber\":2024081404}],\"items\":null,\"tableAbbreviation\":null}}",
+      "formValues":
+          "{\"tblEty\":0,\"virusrmgtCtnFilTpl\":null,\"virusrmgtLstVw\":null,\"virusrmgtFltVndID\":null,\"virusrmgtFltLocID\":null,\"virusrmgtFltUsr\":null,\"virusrmgtFltSrh\":null}",
+      "sender": "virusrmgtLstVw",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+
+    _resultObject = await databaseLibService.getDynamicState(_payload!);
+
+    String syncGuid = _resultObject!['virusrmgtLstVw']['multiAction'][0]
+        ['actionParameters']['dataItems'][0];
+    UserData record = await DatabaseLibService.findById<UserData>(syncGuid);
+    Assert.equals(record.deletionStatus, true);
+  }
+
+  Future<void> testGetListComment(DatabaseLibService databaseLibService) async {
+    String jsonRequest = '''
+{
+  "page": 0,
+  "pageSize": 0,
+  "skip": 0,
+  "take": 0,
+  "topN": 100,
+  "columns": [
+    {
+      "fullyQualifiedName": "cmt.cmtSczGud",
+      "alias": "cmtSczGud"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtCmt",
+      "alias": "cmtCmt"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtPrmDelYN1",
+      "alias": "cmtPrmDelYN1"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtPrmCpyYN1",
+      "alias": "cmtPrmCpyYN1"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtCrtDt",
+      "alias": "cmtCrtDt"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtDelDt",
+      "alias": "cmtDelDt"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtCrtUsr",
+      "alias": "cmtCrtUsr"
+    },
+    {
+      "fullyQualifiedName": "cmt.cmtDelSts",
+      "alias": "cmtDelSts"
+    }
+  ],
+  "sendTotalCount": false,
+  "formValues": "{\\"virtstCmtCmp\\":\\"5C4605D5-E345-4068-9DE2-69A258A85D7B\\"}",
+  "parameters": "{\\"fomtpldetFldnmAs\\":\\"virtstCmtCmp\\",\\"virtstCmtCmp\\":{\\"tableAbbreviation\\":\\"fac\\"}}",
+  "distinct": false,
+  "exportParameters": null,
+  "workerName": null,
+  "filter": "{}",
+  "additionalFilter": null,
+  "tblnm": "cmt",
+  "sort": "[{\\"field\\":\\"cmtCrtDt\\",\\"dir\\":\\"desc\\"}]"
+}
+''';
+    Map<String, dynamic> request = jsonDecode(jsonRequest);
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(request);
+
+    print(resultObject);
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInFirstCall(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInFirstCall');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"BBD5F9E0-6182-11EF-8EC1-ADC94FF0916C\",\"dynamicStateGuid\":\"BC0F5960-6182-11EF-8EC1-ADC94FF0916C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":null,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": null,
+      "isFirstTime": true,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 0
+    print('First Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInChangeResource(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInChangeResource');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"BBD5F9E0-6182-11EF-8EC1-ADC94FF0916C\",\"dynamicStateGuid\":\"D05ACC40-6189-11EF-8EC1-ADC94FF0916C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":0,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldFltRscID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //First Step should be 1
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    print('First Step ${value['value']}');
+    //Label should not be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl01'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInRemoveResource(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInRemoveResource');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"BBD5F9E0-6182-11EF-8EC1-ADC94FF0916C\",\"dynamicStateGuid\":\"36D2D570-618B-11EF-8EC1-ADC94FF0916C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":0,\"virsrvvldFltSrvID\":null,\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldFltRscID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //Label should be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl01'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void>
+      testDynamicStateServiceValidationCheckInStep1MoveNextResourceEmpty(
+          DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInStep1MoveNextResourceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"F34CDE90-6194-11EF-B7B7-572EA6FDD4A9\",\"dynamicStateGuid\":\"00182B20-6195-11EF-B7B7-572EA6FDD4A9\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":1,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 0
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInChangeService(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInChangeService');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"F34CDE90-6194-11EF-B7B7-572EA6FDD4A9\",\"dynamicStateGuid\":\"4CF5A390-6196-11EF-B7B7-572EA6FDD4A9\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":1,\"virsrvvldFltSrvID\":\"ED8CBAC8-29BC-4A45-AF54-F207750F198B\",\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldFltSrvID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //First Step should be 2
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    print('Step ${value['value']}');
+    //Label should not be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl02'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInRemoveService(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInRemoveService');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"F34CDE90-6194-11EF-B7B7-572EA6FDD4A9\",\"dynamicStateGuid\":\"89C6CAB0-6196-11EF-B7B7-572EA6FDD4A9\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":1,\"virsrvvldFltSrvID\":null,\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\",\"vrtsrvvldSubTtl02\":\"Pest Control\"}",
+      "isViewing": false,
+      "sender": "virsrvvldFltSrvID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //Label should be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl02'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void>
+      testDynamicStateServiceValidationCheckInStep2MoveNextServiceEmpty(
+          DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInStep2MoveNextServiceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"F34CDE90-6194-11EF-B7B7-572EA6FDD4A9\",\"dynamicStateGuid\":\"0D117010-6196-11EF-B7B7-572EA6FDD4A9\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":2,\"virsrvvldFltSrvID\":null,\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 1
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInMoveToStep2ResourceEmpty(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInMoveToStep2ResourceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"7C16B180-6198-11EF-8FAD-5D11CA451E0C\",\"dynamicStateGuid\":\"89DE8680-6198-11EF-8FAD-5D11CA451E0C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":1,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 0
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInMoveToStep3ResourceEmpty(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInMoveToStep3ResourceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"7C16B180-6198-11EF-8FAD-5D11CA451E0C\",\"dynamicStateGuid\":\"AE8D6500-6198-11EF-8FAD-5D11CA451E0C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":2,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 0
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInMoveToStep3ServiceEmpty(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInMoveToStep3ServiceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"7C16B180-6198-11EF-8FAD-5D11CA451E0C\",\"dynamicStateGuid\":\"FAC12560-6198-11EF-8FAD-5D11CA451E0C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":2,\"virsrvvldFltSrvID\":null,\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 1
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInMoveToStep4ResourceEmpty(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInMoveToStep4ResourceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"7C16B180-6198-11EF-8FAD-5D11CA451E0C\",\"dynamicStateGuid\":\"D18A9BE0-6198-11EF-8FAD-5D11CA451E0C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":null,\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":3,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 0
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInMoveToStep4ServiceEmpty(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInMoveToStep4ServiceEmpty');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"7C16B180-6198-11EF-8FAD-5D11CA451E0C\",\"dynamicStateGuid\":\"2610CAE0-6199-11EF-8FAD-5D11CA451E0C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":3,\"virsrvvldFltSrvID\":null,\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldStp",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    Map<String, dynamic> value = resultObject['virsrvvldStp'];
+    //First Step should be 1
+    print('Step ${value['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInSetInvalidResource(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInSetInvalidResource');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"BBD5F9E0-6182-11EF-8EC1-ADC94FF0916C\",\"dynamicStateGuid\":\"D05ACC40-6189-11EF-8EC1-ADC94FF0916C\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":0,\"virsrvvldFltSrvID\":null}",
+      "isViewing": false,
+      "sender": "virsrvvldFltRscID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //Label should be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl01'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void> testDynamicStateServiceValidationCheckInSetInvalidService(
+      DatabaseLibService databaseLibService) async {
+    print('testDynamicStateServiceValidationCheckInSetInvalidService');
+    Map<String, dynamic> dynamicState = {
+      "tblnm": "virsrvvld",
+      "templateId": 356,
+      "parameters":
+          "{\"tblEty\":0,\"prnFomtplhdrID\":356,\"path\":\"/pages/service_validation/check_in\",\"queryParameters\":{},\"templateKey\":\"SERVICE_VALIDATION/CHECK_IN\",\"uiKey\":\"F34CDE90-6194-11EF-B7B7-572EA6FDD4A9\",\"dynamicStateGuid\":\"4CF5A390-6196-11EF-B7B7-572EA6FDD4A9\",\"isFormValid\":true}",
+      "formValues":
+          "{\"tblEty\":0,\"virsrvvldCtnFilTpl\":null,\"virsrvvldFltRscID\":\"31156763-4efa-11ec-8933-005056917007\",\"virsrvvldSrcRsc\":null,\"virsrvvldSrcRscByQr\":null,\"virsrvvldFilUplAta\":null,\"virsrvvldLoc\":null,\"virsrvvldStp\":1,\"virsrvvldFltSrvID\":\"ED8CBAC8\",\"vrtsrvvldSubTtl01\":\"010020 - ONTARIO CO\"}",
+      "isViewing": false,
+      "sender": "virsrvvldFltSrvID",
+      "isFirstTime": false,
+      "isMobile": false
+    };
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getDynamicState(dynamicState);
+
+    print(resultObject);
+    //Label should be null
+    Map<String, dynamic> label = resultObject['vrtsrvvldSubTtl02'];
+    print('Label ${label['value']}');
+  }
+
+  Future<void> testGetListAttachments() async {
+    String blobSyncGuid = await testUploadBlobWithAbbreviationAndTableEntity();
+
+    await testDeleteBlob(blobSyncGuid: blobSyncGuid);
+
+    _payload = {
+      "filter": null,
+      "sort": "[{\"field\":\"creationDatetime\",\"dir\":\"desc\"}]",
+      "firstTimeCall": false,
+      "columns": [
+        {"fullyQualifiedName": "ata.syncGuid", "alias": "syncGuid"},
+        {"fullyQualifiedName": "ata.filename", "alias": "filename"},
+        {"fullyQualifiedName": "ata.size", "alias": "size"},
+        {"fullyQualifiedName": "ata.contentType", "alias": "contentType"},
+        {"fullyQualifiedName": "ata.tags", "alias": "tags"},
+        {
+          "fullyQualifiedName": "ata.tableAbbreviation",
+          "alias": "tableAbbreviation"
+        },
+        {
+          "fullyQualifiedName": "ata.tableEntitySyncGuid",
+          "alias": "tableEntitySyncGuid"
+        },
+        {
+          "fullyQualifiedName": "ata.creationDatetime",
+          "alias": "creationDatetime"
+        },
+        {
+          "fullyQualifiedName": "ata.creationUsername",
+          "alias": "creationUsername"
+        }
+      ],
+      "tblnm": "ata",
+      "templateId": 356,
+      "distinct": false,
+      "formValues":
+          "{\"virsrvvldFilUplAta\":\"0718CA0F-A32C-4347-8232-F1497DA207CD\"}",
+      "parameters":
+          "{\"fomtpldetFldnmAs\":\"virsrvvldFilUplAta\",\"virsrvvldFilUplAta\":{\"tableAbbreviation\":\"srvvld\"}}",
+      "isViewing": false,
+      "pageSize": null,
+    };
+    _resultObject = await databaseLibService.getList(_payload!);
+
+    List<dynamic> data = _resultObject!['data'];
+
+    if (data.isNotEmpty) {
+      throw Exception("Test failed because there are still attachments");
+    }
+
+    print(_resultObject);
+  }
+
+  Future<void> testGetListAccounts({
+    String? id,
+    String? startsWith,
+  }) async {
+    print("TESING Accounts id=[$id] startsWith=[$startsWith]");
+
+    if (id != null) {
+      id = '"$id"';
+    } else {
+      id = 'null';
+    }
+    _payload = {
+      "topN": 100,
+      "columns": [
+        {"fullyQualifiedName": "act.actNm", "alias": "actNm"},
+        {"fullyQualifiedName": "act.actID", "alias": "actID"}
+      ],
+      "sendTotalCount": false,
+      "formValues":
+          "{\"virfltrscCtnFilTpl\":null,\"virfltrscGrpID\":null,\"virfltrscActID\":$id,\"virfltrscLstVw\":null,\"virfltrscRscDspNm\":null}",
+      "parameters":
+          "{\"prnFomtplhdrID\":358,\"prnTblEty\":0,\"fomtpldetFldnmAs\":\"virfltrscActID\",\"gpnFomtplhdrID\":358,\"gpnTblEty\":0,\"allowOffline\":true,\"useDatabaseLibrary\":true,\"worker\":{\"name\":\"\",\"filter\":\"\"},\"uiKey\":\"756D0250-5A70-11EF-A333-7D3313150125\"}",
+      "distinct": false,
+      "workerName": null,
+      "cancel": false,
+      "filter": null,
+      "additionalFilter": null,
+      "tblnm": "act",
+      "sort": "{\"field\":\"actNm\",\"dir\":\"asc\"}"
+    };
+
+    if (startsWith != null && startsWith.isNotEmpty) {
+      _payload!['filter'] = jsonEncode({
+        'field': 'actNm',
+        'operator': 'startswith',
+        'value': startsWith,
+      });
+    } else {
+      print("No FILTER ");
+    }
+
+    print("REQUEST: $_payload");
+    Map<String, dynamic> resultObject =
+        await databaseLibService.getList(_payload!);
+    print("RESPONSE:::");
+    print(resultObject);
+
+    _resultObject = resultObject;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String payload = const JsonEncoder.withIndent('  ').convert(_payload);
+    response = const JsonEncoder.withIndent('  ').convert(_resultObject);
+
+    final controller = CodeController(
+      text: response, // Initial code
+      language: json, // Language for syntax highlighting
+    );
+
+    final payloadController = CodeController(
+        text: payload, // Initial code
+        language: json);
+
+    Future<void> copyPayload() async {
+      await Clipboard.setData(ClipboardData(text: jsonEncode(_payload)));
+    }
+
+    Future<void> copyResponse() async {
+      await Clipboard.setData(ClipboardData(text: jsonEncode(_resultObject)));
+    }
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          floatingActionButton: _buildPlatformSpecificFAB(),
+          appBar: AppBar(
+            title: const Text('Database synchronization'),
+          ),
+          body: FutureBuilder(
+            future: _init,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error} ${snapshot.stackTrace}');
+              } else if (snapshot.connectionState == ConnectionState.done) {
+                return Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _textEditingController,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter your text or guid',
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              onPressed: onPressRunAll,
+                              child: const Text('Run all'),
+                            ),
+                            ElevatedButton(
+                              onPressed: onClick,
+                              child: const Text('Run one'),
+                            ),
+                            ElevatedButton(
+                                onPressed: copyPayload,
+                                child: const Text('Payload')),
+                            ElevatedButton(
+                                onPressed: copyResponse,
+                                child: const Text('Response')),
+                          ],
+                        ),
+                        codePad(payloadController),
+                        const Text("Result:"),
+                        codePad(controller),
+                      ],
+                    ),
+                  ),
+                );
+              } else {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+            },
+          )),
+    );
+  }
+
+  Widget? _buildPlatformSpecificFAB() {
+    if (!kIsWeb) {
+      return const ClipboardFAB();
+    }
+    return null; // Returns null for non-mobile platforms
+  }
+
+  Widget codePad(CodeController controller) {
+    return CodeTheme(
+      data: CodeThemeData(styles: monokaiSublimeTheme),
+      child: SingleChildScrollView(
+        child: CodeField(
+          controller: controller,
+        ),
+      ),
+    );
+  }
+}
