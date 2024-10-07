@@ -36,7 +36,7 @@ class User with Identifiable {
   int age;
 
   User(this.id, this.name, this.age) {
-    Identifiable.addObject(id, this);
+    Identifiable.identityMap.addObject(id, this);
   }
 
   void updateAttribute(String attributeName, dynamic newValue) {
@@ -65,6 +65,5 @@ void main() {
   var user2 = User('2', 'Bob', 30);
   var user3 = User('3', 'Charlie', 35);
 
-  print(user1.identityMap);
   var userClone = User.find('1');
 }
