@@ -5,7 +5,7 @@ mixin Identifiable {
     return identityMap[id];
   }
 
-  void store(String id, dynamic object) {
+  void keep(String id, dynamic object) {
     identityMap[id] = object;
   }
 }
