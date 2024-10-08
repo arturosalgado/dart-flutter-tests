@@ -24,8 +24,20 @@ class MainApp extends StatelessWidget {
     String id = generateRandomString();
     Map<String, dynamic> payload = {
       'action': 'create',
+      'type': 'user',
       'syncGuid': id,
       'email': 'art$id@gmail.com'
+    };
+    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+  }
+
+  void onPressedCreateBlob() {
+    String id = generateRandomString2();
+    Map<String, dynamic> payload = {
+      'action': 'create',
+      'type': 'blob',
+      'syncGuid': id,
+      'content': "content:$id"
     };
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
@@ -55,6 +67,9 @@ class MainApp extends StatelessWidget {
                   child: const Text('Change Email for user ')),
               ElevatedButton(
                   onPressed: onPressedCreateUser,
+                  child: const Text('Create User')),
+              ElevatedButton(
+                  onPressed: onPressedCreateBlob,
                   child: const Text('Create User'))
             ],
           ),
@@ -66,5 +81,10 @@ class MainApp extends StatelessWidget {
   String generateRandomString() {
     final random = Random();
     return (1000 + random.nextInt(9000)).toString();
+  }
+
+  String generateRandomString2() {
+    final random = Random();
+    return (100 + random.nextInt(900)).toString();
   }
 }

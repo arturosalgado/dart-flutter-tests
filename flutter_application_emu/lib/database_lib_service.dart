@@ -20,16 +20,23 @@ class Databaselibservice {
       user.username = "a$code";
       user.store.save(Operations.save);
     } else if (payload['action'] == 'update') {
-      user = await DbDataConverter.findById<UserData>(payload['syncGuid']);
-      if (user != null) {
-        user.email = payload['email'];
-        EmailUpdater().update(user.syncGuid, payload['email']);
-        print("User updated is [$user] ");
-      } else {
-        print("user not found ");
+      if (payload['type'] = 'user') {
+        return updateUser(payload);
+      } else if (payload['type'] == 'blob') {
+        return updateBlob(payload);
       }
     }
+  }
 
-    return {'object': user, 'action': 'refresh'};
+  Future<void> updateUser(Map<String, dynamic> payload) async {
+    UserData? user;
+    user = await DbDataConverter.findById<UserData>(payload['syncGuid']);
+    if (user != null) {
+      user.email = payload['email'];
+      EmailUpdater().update(user.syncGuid, payload['email']);
+      print("User updated is [$user] ");
+    } else {
+      print("user not found ");
+    }
   }
 }
