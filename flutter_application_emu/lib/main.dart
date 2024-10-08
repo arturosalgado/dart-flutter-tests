@@ -21,7 +21,7 @@ class _MainAppState extends State<MainApp> {
 
   final TextEditingController textControllerContent = TextEditingController();
 
-  String result = '';
+  String result = 'hello world';
   void updateResponse(response) {
     setState(() {
       result = jsonEncode(response);
@@ -105,7 +105,12 @@ class _MainAppState extends State<MainApp> {
               ElevatedButton(
                   onPressed: onPressUpdateBlob,
                   child: const Text('Update Blob')),
-              Text(result)
+              Container(
+                color: Colors.yellow,
+                width: 400,
+                height: 400,
+                child: Text(result),
+              )
             ],
           ),
         ),
