@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -8,10 +9,20 @@ void main() {
   runApp(MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> {
   final TextEditingController textControllerId = TextEditingController();
+
   final TextEditingController textControllerContent = TextEditingController();
+
+  String result = '';
+
   void onPressUpdate() {
     Map<String, dynamic> payload = {
       'action': 'update',
@@ -19,7 +30,10 @@ class MainApp extends StatelessWidget {
       'syncGuid': textControllerId.text,
       'email': textControllerContent.text
     };
-    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+    var response = DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+    setState() {
+      result = jsonEncode(response);
+    }
   }
 
   void onPressedCreateUser() {
@@ -30,6 +44,7 @@ class MainApp extends StatelessWidget {
       'syncGuid': id,
       'email': 'art$id@gmail.com'
     };
+    print("Creating user with payload $payload");
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
 
@@ -41,6 +56,7 @@ class MainApp extends StatelessWidget {
       'syncGuid': id,
       'content': "content:$id"
     };
+    print("creating blob with payload $payload");
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
 
@@ -85,6 +101,7 @@ class MainApp extends StatelessWidget {
               ElevatedButton(
                   onPressed: onPressUpdateBlob,
                   child: const Text('Update Blob')),
+              Text(result)
             ],
           ),
         ),

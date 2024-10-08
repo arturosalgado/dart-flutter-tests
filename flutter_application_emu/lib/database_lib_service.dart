@@ -4,17 +4,18 @@ import 'package:flutter_application_emu/blob_metadata_data.dart';
 import 'package:flutter_application_emu/db_data_converter.dart';
 import 'package:flutter_application_emu/content_updater.dart';
 import 'package:flutter_application_emu/operations.dart';
+import 'package:flutter_application_emu/types.dart';
 import 'package:flutter_application_emu/user_data.dart';
 
 class Databaselibservice {
   Future<Map<String, dynamic>> getDynamicState(
       Map<String, dynamic> payload) async {
     switch (payload['type']) {
-      case 'user':
+      case Types.user:
         return await payload['action'] == 'create'
             ? createUser(payload)
             : updateUser(payload);
-      case 'blob':
+      case Types.blob:
         return await payload['action'] == 'create'
             ? createBlob(payload)
             : updateBlob(payload);
@@ -43,20 +44,21 @@ class Databaselibservice {
   }
 
   Future<Map<String, dynamic>> createBlob(Map<String, dynamic> payload) async {
-    UserData user;
+    print("Creatin a blob");
+    BlobMetadataData blob;
     var rng = Random();
     var code = rng.nextInt(900) + 1000;
 
-    user = UserData();
-    user.syncGuid = code.toString();
-    user.email = "a$code@a.com";
-    user.username = "a$code";
-    user.store.save(Operations.save);
+    blob = BlobMetadataData();
+    blob.syncGuid = code.toString();
+    blob.content = payload['content'];
+
+    blob.store.save(Operations.save);
 
     return {
       "status": 'ok',
-      'object': user,
-      'type': user.runtimeType.toString(),
+      'object': blob,
+      'type': blob.runtimeType.toString(),
       'action': 'refresh'
     };
   }

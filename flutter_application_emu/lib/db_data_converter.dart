@@ -23,6 +23,11 @@ class DbDataConverter {
   }
 
   static Future<T?> findById<T extends DataConverter>(String id) async {
+    if (id.isEmpty) {
+      print("update called with no id");
+      return null;
+    }
+
     dynamic item = (Identifiable.getById(id) as T);
 
     if (item != null) {

@@ -14,4 +14,9 @@ class BlobMetadataData extends DataConverter {
   Map<String, dynamic> toStoreMapChild() {
     return {'syncGuid': syncGuid, 'content': content};
   }
+
+  @override
+  String toString() {
+    return 'Blob:{syncGuid:$syncGuid, content:$content}';
+  }
 }
