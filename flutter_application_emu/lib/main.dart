@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_emu/dynamic_state.dart';
+import 'package:flutter_application_emu/types.dart';
 
 void main() {
   runApp(MainApp());
@@ -14,6 +15,7 @@ class MainApp extends StatelessWidget {
   void onPressUpdate() {
     Map<String, dynamic> payload = {
       'action': 'update',
+      'type': Types.user,
       'syncGuid': textControllerId.text,
       'email': textControllerEmail.text
     };
@@ -24,7 +26,7 @@ class MainApp extends StatelessWidget {
     String id = generateRandomString();
     Map<String, dynamic> payload = {
       'action': 'create',
-      'type': 'user',
+      'type': Types.user,
       'syncGuid': id,
       'email': 'art$id@gmail.com'
     };
