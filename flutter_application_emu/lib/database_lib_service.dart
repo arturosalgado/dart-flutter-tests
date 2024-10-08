@@ -1,8 +1,35 @@
+import 'dart:math';
+
+import 'package:flutter_application_emu/db_data_converter.dart';
+import 'package:flutter_application_emu/email_updater.dart';
+import 'package:flutter_application_emu/operations.dart';
+import 'package:flutter_application_emu/user_data.dart';
+
 class Databaselibservice {
-  Map<String, dynamic> getDynamicState(Map<String, dynamic> payload) {
-    print("pay $payload");
-    String syncGuid = payload['syncGuid'];
-    print(" blob id is $syncGuid ");
-    return {'state': 'updated'};
+  Future<Map<String, dynamic>> getDynamicState(
+      Map<String, dynamic> payload) async {
+    print("requested action $payload['action'] ");
+    late UserData? user;
+    if (payload['action'] == 'create') {
+      var rng = Random();
+      var code = rng.nextInt(900) + 1000;
+
+      user = UserData();
+      user.syncGuid = code.toString();
+      user.email = "a$code@a.com";
+      user.username = "a$code";
+      user.store.save(Operations.save);
+    } else if (payload['action'] == 'update') {
+      user = await DbDataConverter.findById<UserData>(payload['syncGuid']);
+      if (user != null) {
+        user.email = payload['email'];
+        EmailUpdater().update(user.syncGuid, payload['email']);
+        print("User updated is [$user] ");
+      } else {
+        print("user not found ");
+      }
+    }
+
+    return {'object': user, 'action': 'refresh'};
   }
 }

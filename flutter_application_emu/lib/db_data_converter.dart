@@ -1,5 +1,6 @@
 import 'package:flutter_application_emu/blob_metadata_data.dart';
 import 'package:flutter_application_emu/data_converter.dart';
+import 'package:flutter_application_emu/identifiable.dart';
 import 'package:flutter_application_emu/user_data.dart';
 
 class DbDataConverter {
@@ -19,5 +20,21 @@ class DbDataConverter {
     }
 
     return dataConverter;
+  }
+
+  static Future<T?> findById<T extends DataConverter>(String id) async {
+    if (Identifiable.identityMap.containsKey(id)) {
+      dynamic item = Identifiable.identityMap[id] as T;
+      print("this comes from the Identity map $item ");
+      return item;
+    }
+
+    T item = instantiate<T>();
+    print('empty item  $item is of type ${item.runtimeType}');
+    Map<String, dynamic> objectData = item.store.query(id);
+    item.fromStoreMap(objectData);
+    Identifiable.keep(item.syncGuid, item); // test is the exact same instance
+
+    return item;
   }
 }

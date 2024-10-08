@@ -3,4 +3,20 @@ import 'package:flutter_application_emu/store.dart';
 
 abstract class DataConverter with Identifiable {
   late Store store;
+
+  DataConverter() {
+    store = Store(this);
+  }
+
+  void fromStoreMapChild(Map<String, dynamic> map);
+
+  void fromStoreMap(Map<String, dynamic> map) {
+    fromStoreMapChild(map);
+  }
+
+  Map<String, dynamic> toStoreMapChild();
+
+  Map<String, dynamic> toStoreMap() {
+    return toStoreMapChild();
+  }
 }
