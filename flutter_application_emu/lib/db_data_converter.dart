@@ -23,13 +23,15 @@ class DbDataConverter {
   }
 
   static Future<T?> findById<T extends DataConverter>(String id) async {
-    if (Identifiable.identityMap.containsKey(id)) {
-      dynamic item = Identifiable.identityMap[id] as T;
-      print("this comes from the Identity map $item ");
+    dynamic item = (Identifiable.getById(id) as T);
+
+    if (item != null) {
+      print(
+          "this comes from the Identity map $item its type is ${item.runtimeType}");
       return item;
     }
-
-    T item = instantiate<T>();
+    // simulate retrieve from DB and save to Identifiable
+    item = instantiate<T>();
     print('empty item  $item is of type ${item.runtimeType}');
     Map<String, dynamic> objectData = item.store.query(id);
     item.fromStoreMap(objectData);

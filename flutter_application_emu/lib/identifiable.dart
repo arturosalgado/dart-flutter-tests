@@ -2,7 +2,7 @@ mixin Identifiable {
   late String syncGuid;
   static Map<String, dynamic> identityMap = {};
 
-  dynamic getById(String id) {
+  static dynamic getById(String id) {
     return identityMap[id];
   }
 

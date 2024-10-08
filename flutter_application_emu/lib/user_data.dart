@@ -15,4 +15,9 @@ class UserData extends DataConverter {
   Map<String, dynamic> toStoreMapChild() {
     return {'syncGuid': syncGuid, 'username': username, 'email': email};
   }
+
+  @override
+  String toString() {
+    return 'User: syncGuid $syncGuid, username: $username, email $email';
+  }
 }

@@ -8,7 +8,7 @@ import 'package:flutter_application_emu/user_data.dart';
 class Databaselibservice {
   Future<Map<String, dynamic>> getDynamicState(
       Map<String, dynamic> payload) async {
-    print("requested action $payload['action'] ");
+    print("requested action ${payload['action']} ");
     late UserData? user;
     if (payload['action'] == 'create') {
       var rng = Random();
