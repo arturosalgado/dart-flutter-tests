@@ -22,21 +22,24 @@ class _MainAppState extends State<MainApp> {
   final TextEditingController textControllerContent = TextEditingController();
 
   String result = '';
+  void updateResponse(response) {
+    setState(() {
+      result = jsonEncode(response);
+    });
+  }
 
-  void onPressUpdate() {
+  void onPressUpdate() async {
     Map<String, dynamic> payload = {
       'action': 'update',
       'type': Types.user,
       'syncGuid': textControllerId.text,
       'email': textControllerContent.text
     };
-    var response = DynamicState().getDynamicStateFromDatabaseLibrary(payload);
-    setState() {
-      result = jsonEncode(response);
-    }
+    updateResponse(
+        await DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
-  void onPressedCreateUser() {
+  void onPressedCreateUser() async {
     String id = generateRandomString();
     Map<String, dynamic> payload = {
       'action': 'create',
@@ -45,7 +48,8 @@ class _MainAppState extends State<MainApp> {
       'email': 'art$id@gmail.com'
     };
     print("Creating user with payload $payload");
-    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+    updateResponse(
+        await DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
   void onPressedCreateBlob() {
@@ -57,7 +61,7 @@ class _MainAppState extends State<MainApp> {
       'content': "content:$id"
     };
     print("creating blob with payload $payload");
-    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+    updateResponse(DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
   void onPressUpdateBlob() {
@@ -67,7 +71,7 @@ class _MainAppState extends State<MainApp> {
       'syncGuid': textControllerId.text,
       'content': textControllerContent.text
     };
-    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+    updateResponse(DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
   @override
