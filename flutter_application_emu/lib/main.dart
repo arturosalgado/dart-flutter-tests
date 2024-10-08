@@ -11,13 +11,13 @@ void main() {
 class MainApp extends StatelessWidget {
   MainApp({super.key});
   final TextEditingController textControllerId = TextEditingController();
-  final TextEditingController textControllerEmail = TextEditingController();
+  final TextEditingController textControllerContent = TextEditingController();
   void onPressUpdate() {
     Map<String, dynamic> payload = {
       'action': 'update',
       'type': Types.user,
       'syncGuid': textControllerId.text,
-      'email': textControllerEmail.text
+      'email': textControllerContent.text
     };
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
@@ -37,9 +37,19 @@ class MainApp extends StatelessWidget {
     String id = generateRandomString2();
     Map<String, dynamic> payload = {
       'action': 'create',
-      'type': 'blob',
+      'type': Types.blob,
       'syncGuid': id,
       'content': "content:$id"
+    };
+    DynamicState().getDynamicStateFromDatabaseLibrary(payload);
+  }
+
+  void onPressUpdateBlob() {
+    Map<String, dynamic> payload = {
+      'action': 'update',
+      'type': Types.blob,
+      'syncGuid': textControllerId.text,
+      'content': textControllerContent.text
     };
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
@@ -52,7 +62,7 @@ class MainApp extends StatelessWidget {
     );
 
     TextField textFieldEmail = TextField(
-      controller: textControllerEmail,
+      controller: textControllerContent,
       decoration: const InputDecoration(hintText: 'Email'),
     );
 
@@ -65,14 +75,16 @@ class MainApp extends StatelessWidget {
               textFieldId,
               textFieldEmail,
               ElevatedButton(
-                  onPressed: onPressUpdate,
-                  child: const Text('Change Email for user ')),
-              ElevatedButton(
                   onPressed: onPressedCreateUser,
                   child: const Text('Create User')),
               ElevatedButton(
+                  onPressed: onPressUpdate, child: const Text('Update User')),
+              ElevatedButton(
                   onPressed: onPressedCreateBlob,
-                  child: const Text('Create User'))
+                  child: const Text('Create Blob')),
+              ElevatedButton(
+                  onPressed: onPressUpdateBlob,
+                  child: const Text('Update Blob')),
             ],
           ),
         ),
