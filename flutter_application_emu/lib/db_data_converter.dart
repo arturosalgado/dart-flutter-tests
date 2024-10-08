@@ -36,7 +36,7 @@ class DbDataConverter {
       return item;
     }
     // simulate retrieve from DB and save to Identifiable
-    item = instantiate<T>();
+    //item = instantiate<T>();// we dont need this , so we bring the exact same instance
     print('empty item  $item is of type ${item.runtimeType}');
     Map<String, dynamic> objectData = item.store.query(id);
     item.fromStoreMap(objectData);

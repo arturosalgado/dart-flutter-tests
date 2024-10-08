@@ -1,1 +1,1 @@
-enum Operations { save, update }
+enum Operations { saveNew, update }

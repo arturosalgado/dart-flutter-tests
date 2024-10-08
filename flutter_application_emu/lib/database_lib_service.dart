@@ -33,7 +33,7 @@ class Databaselibservice {
     user.syncGuid = code.toString();
     user.email = "a$code@a.com";
     user.username = "a$code";
-    user.store.save(Operations.save);
+    user.store.save(Operations.saveNew);
 
     return {
       "status": 'ok',
@@ -53,7 +53,7 @@ class Databaselibservice {
     blob.syncGuid = code.toString();
     blob.content = payload['content'];
 
-    blob.store.save(Operations.save);
+    blob.store.save(Operations.saveNew);
 
     return {
       "status": 'ok',

@@ -22,7 +22,10 @@ class _MainAppState extends State<MainApp> {
   final TextEditingController textControllerContent = TextEditingController();
 
   String result = 'hello world';
-  void updateResponse(response) {
+  void updateResponse(Map<String, dynamic> response) {
+    if (response.containsKey('object')) {
+      response['object'] = response['object'].toString();
+    }
     setState(() {
       result = jsonEncode(response);
     });
@@ -52,26 +55,27 @@ class _MainAppState extends State<MainApp> {
         await DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
-  void onPressedCreateBlob() {
-    String id = generateRandomString2();
+  void onPressedCreateBlob() async {
+    String content = generateRandomString();
     Map<String, dynamic> payload = {
       'action': 'create',
       'type': Types.blob,
-      'syncGuid': id,
-      'content': "content:$id"
+      'content': "contentFromPayload:$content"
     };
     print("creating blob with payload $payload");
-    updateResponse(DynamicState().getDynamicStateFromDatabaseLibrary(payload));
+    updateResponse(
+        await DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
-  void onPressUpdateBlob() {
+  void onPressUpdateBlob() async {
     Map<String, dynamic> payload = {
       'action': 'update',
       'type': Types.blob,
       'syncGuid': textControllerId.text,
       'content': textControllerContent.text
     };
-    updateResponse(DynamicState().getDynamicStateFromDatabaseLibrary(payload));
+    updateResponse(
+        await DynamicState().getDynamicStateFromDatabaseLibrary(payload));
   }
 
   @override

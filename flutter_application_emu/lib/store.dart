@@ -22,12 +22,16 @@ class Store {
 
   Future<void> save(Operations operation) async {
     // simulate save to db
-    if (operation == Operations.save) {
+    if (operation == Operations.saveNew) {
       db.addAll({_dataConverter.syncGuid: _dataConverter.toStoreMap()});
       // after that, save to Identifiable
       Identifiable.keep(_dataConverter.syncGuid, _dataConverter);
+    } else {
+      //update
+      //Identifiable.keep(_dataConverter.syncGuid, _dataConverter);
     }
 
     print("Map contents " + Identifiable.identityMap.toString());
+    print("this Database $db");
   }
 }
