@@ -4,17 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_emu/dynamic_state.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(MainApp());
 }
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
-
+  MainApp({super.key});
+  final TextEditingController textControllerId = TextEditingController();
+  final TextEditingController textControllerEmail = TextEditingController();
   void onPressUpdate() {
     Map<String, dynamic> payload = {
       'action': 'update',
-      'syncGuid': "456",
-      'email': 'art@gmail.com'
+      'syncGuid': textControllerId.text,
+      'email': textControllerEmail.text
     };
     DynamicState().getDynamicStateFromDatabaseLibrary(payload);
   }
@@ -31,8 +32,15 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    TextEditingController textController = TextEditingController();
-    TextField textField = TextField(controller: textController);
+    TextField textFieldId = TextField(
+      controller: textControllerId,
+      decoration: const InputDecoration(hintText: 'SyncGuid'),
+    );
+
+    TextField textFieldEmail = TextField(
+      controller: textControllerEmail,
+      decoration: const InputDecoration(hintText: 'Email'),
+    );
 
     return MaterialApp(
       home: Scaffold(
@@ -40,10 +48,11 @@ class MainApp extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              textField,
+              textFieldId,
+              textFieldEmail,
               ElevatedButton(
                   onPressed: onPressUpdate,
-                  child: const Text('Change Email for user 456')),
+                  child: const Text('Change Email for user ')),
               ElevatedButton(
                   onPressed: onPressedCreateUser,
                   child: const Text('Create User'))
