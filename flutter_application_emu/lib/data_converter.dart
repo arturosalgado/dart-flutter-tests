@@ -1,7 +1,8 @@
 import 'package:flutter_application_emu/identifiable.dart';
 import 'package:flutter_application_emu/store.dart';
 
-abstract class DataConverter with Identifiable {
+abstract class DataConverter {
+  String? syncGuid;
   late Store store;
 
   DataConverter() {

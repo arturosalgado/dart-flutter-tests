@@ -21,11 +21,12 @@ class Store {
   }
 
   Future<void> save(Operations operation) async {
+    Identifiable identifiable = Identifiable();
     // simulate save to db
     if (operation == Operations.saveNew) {
-      db.addAll({_dataConverter.syncGuid: _dataConverter.toStoreMap()});
+      db.addAll({_dataConverter.syncGuid!: _dataConverter.toStoreMap()});
       // after that, save to Identifiable
-      Identifiable.keep(_dataConverter.syncGuid, _dataConverter);
+      identifiable.keep(_dataConverter.syncGuid!, _dataConverter);
     } else {
       //update
       //Identifiable.keep(_dataConverter.syncGuid, _dataConverter);

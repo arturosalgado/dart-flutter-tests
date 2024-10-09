@@ -1,12 +1,11 @@
-mixin Identifiable {
-  late String syncGuid;
+class Identifiable {
   static Map<String, dynamic> identityMap = {};
 
-  static dynamic getById(String id) {
+  dynamic getById(String id) {
     return identityMap[id];
   }
 
-  static void keep(String id, dynamic object) {
+  void keep(String id, dynamic object) {
     identityMap[id] = object;
   }
 }

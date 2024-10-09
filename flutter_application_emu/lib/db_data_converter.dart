@@ -27,8 +27,8 @@ class DbDataConverter {
       print("update called with no id");
       return null;
     }
-
-    dynamic item = (Identifiable.getById(id) as T);
+    Identifiable identifiable = Identifiable();
+    dynamic item = (identifiable.getById(id) as T);
 
     if (item != null) {
       print(
@@ -40,7 +40,7 @@ class DbDataConverter {
     print('empty item  $item is of type ${item.runtimeType}');
     Map<String, dynamic> objectData = item.store.query(id);
     item.fromStoreMap(objectData);
-    Identifiable.keep(item.syncGuid, item); // test is the exact same instance
+    identifiable.keep(item.syncGuid, item); // test is the exact same instance
 
     return item;
   }

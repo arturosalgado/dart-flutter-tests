@@ -69,7 +69,7 @@ class Databaselibservice {
 
     if (user != null) {
       // se actualiza en otra parte mandando el guid
-      ContentUpdater.updateUser(user.syncGuid, payload['email']);
+      ContentUpdater.updateUser(user.syncGuid!, payload['email']);
       // este usuario ya tiene el nuevo correo
       print("User updated is [$user] ");
     } else {
@@ -88,7 +88,7 @@ class Databaselibservice {
     blob =
         await DbDataConverter.findById<BlobMetadataData>(payload['syncGuid']);
     if (blob != null) {
-      ContentUpdater.updateBlob(blob.syncGuid, payload['content']);
+      ContentUpdater.updateBlob(blob.syncGuid!, payload['content']);
       print("Blob after  update in separete Class is [$blob] ");
     } else {
       print("blob not found ");
